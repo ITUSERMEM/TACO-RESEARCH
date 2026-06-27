@@ -10,10 +10,21 @@ opencode 风格：
 from textual.widgets import TextArea, Static
 from textual.reactive import reactive
 from textual.containers import Vertical
+from textual._text_area_theme import TextAreaTheme
+from rich.style import Style
 
 from opencode_tui.theme import (
     ACCENT, TEXT, TEXT_MUTED,
     BG_ROOT, BG_PANEL, BG_ELEMENT, BORDER,
+)
+
+
+_OPENCODE_TEXTAREA_THEME = TextAreaTheme(
+    name="opencode-input",
+    base_style=Style(color="#eeeeee", bgcolor="#1e1e1e"),
+    cursor_style=Style(color="#1e1e1e", bgcolor="#808080"),
+    cursor_line_style=Style(bgcolor="#2a2a2a"),
+    selection_style=Style(bgcolor="#484848"),
 )
 
 
@@ -46,6 +57,9 @@ class PromptInput(Vertical):
         yield Static("", id="cmd-suggest")
 
     def on_mount(self):
+        ta = self.query_one("#input-textarea", TextArea)
+        ta.register_theme(_OPENCODE_TEXTAREA_THEME)
+        ta.theme = "opencode-input"
         self._update_hint()
 
     def on_text_area_changed(self, event: TextArea.Changed):
