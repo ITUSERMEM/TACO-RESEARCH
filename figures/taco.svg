@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" font-family="monospace">
+  <defs>
+    <style>
+      .bg { fill: #fafbfc; }
+      .sm { fill: #D4A04A; }
+      .sh { fill: #C4913E; }
+      .sd { fill: #A0762C; }
+      .lt { fill: #6BCB6B; }
+      .ld { fill: #4CAF50; }
+      .ch { fill: #FFD93D; }
+      .cd { fill: #E6B800; }
+      .tm { fill: #FF6B6B; }
+      .td { fill: #E53935; }
+      .ey { fill: #333333; }
+      .hw { fill: #FFFFFF; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="240" height="160" rx="16"/>
+
+  <!-- === TACO PIXEL ART (10px grid) === -->
+
+  <!-- Row 0: top of fillings -->
+  <rect class="ld" x="75" y="15" width="10" height="10"/>
+  <rect class="ld" x="85" y="15" width="10" height="10"/>
+  <rect class="ld" x="95" y="15" width="10" height="10"/>
+  <rect class="ld" x="105" y="15" width="10" height="10"/>
+  <rect class="ch" x="115" y="15" width="10" height="10"/>
+  <rect class="ch" x="125" y="15" width="10" height="10"/>
+  <rect class="ch" x="135" y="15" width="10" height="10"/>
+  <rect class="tm" x="145" y="15" width="10" height="10"/>
+  <rect class="tm" x="155" y="15" width="10" height="10"/>
+  <rect class="tm" x="165" y="15" width="10" height="10"/>
+
+  <!-- Row 1 -->
+  <rect class="lt" x="65" y="25" width="10" height="10"/>
+  <rect class="ld" x="75" y="25" width="10" height="10"/>
+  <rect class="ld" x="85" y="25" width="10" height="10"/>
+  <rect class="ld" x="95" y="25" width="10" height="10"/>
+  <rect class="ld" x="105" y="25" width="10" height="10"/>
+  <rect class="ch" x="115" y="25" width="10" height="10"/>
+  <rect class="ch" x="125" y="25" width="10" height="10"/>
+  <rect class="cd" x="135" y="25" width="10" height="10"/>
+  <rect class="tm" x="145" y="25" width="10" height="10"/>
+  <rect class="td" x="155" y="25" width="10" height="10"/>
+  <rect class="tm" x="165" y="25" width="10" height="10"/>
+  <rect class="tm" x="175" y="25" width="10" height="10"/>
+
+  <!-- Row 2 -->
+  <rect class="lt" x="65" y="35" width="10" height="10"/>
+  <rect class="ld" x="75" y="35" width="10" height="10"/>
+  <rect class="ld" x="85" y="35" width="10" height="10"/>
+  <rect class="ld" x="95" y="35" width="10" height="10"/>
+  <rect class="ld" x="105" y="35" width="10" height="10"/>
+  <rect class="ch" x="115" y="35" width="10" height="10"/>
+  <rect class="cd" x="125" y="35" width="10" height="10"/>
+  <rect class="ch" x="135" y="35" width="10" height="10"/>
+  <rect class="tm" x="145" y="35" width="10" height="10"/>
+  <rect class="td" x="155" y="35" width="10" height="10"/>
+  <rect class="td" x="165" y="35" width="10" height="10"/>
+  <rect class="tm" x="175" y="35" width="10" height="10"/>
+
+  <!-- Row 3: shell starts wrapping -->
+  <rect class="sm" x="55" y="45" width="10" height="10"/>
+  <rect class="sm" x="65" y="45" width="10" height="10"/>
+  <rect class="sh" x="75" y="45" width="10" height="10"/>
+  <rect class="lt" x="85" y="45" width="10" height="10"/>
+  <rect class="ld" x="95" y="45" width="10" height="10"/>
+  <rect class="ld" x="105" y="45" width="10" height="10"/>
+  <rect class="ch" x="115" y="45" width="10" height="10"/>
+  <rect class="ch" x="125" y="45" width="10" height="10"/>
+  <rect class="cd" x="135" y="45" width="10" height="10"/>
+  <rect class="tm" x="145" y="45" width="10" height="10"/>
+  <rect class="td" x="155" y="45" width="10" height="10"/>
+  <rect class="sh" x="165" y="45" width="10" height="10"/>
+  <rect class="sm" x="175" y="45" width="10" height="10"/>
+  <rect class="sm" x="185" y="45" width="10" height="10"/>
+
+  <!-- Row 4 -->
+  <rect class="sm" x="45" y="55" width="10" height="10"/>
+  <rect class="sh" x="55" y="55" width="10" height="10"/>
+  <rect class="sd" x="65" y="55" width="10" height="10"/>
+  <rect class="sh" x="75" y="55" width="10" height="10"/>
+  <rect class="sh" x="85" y="55" width="10" height="10"/>
+  <rect class="sh" x="95" y="55" width="10" height="10"/>
+  <rect class="sh" x="105" y="55" width="10" height="10"/>
+  <rect class="sh" x="115" y="55" width="10" height="10"/>
+  <rect class="sh" x="125" y="55" width="10" height="10"/>
+  <rect class="sh" x="135" y="55" width="10" height="10"/>
+  <rect class="sh" x="145" y="55" width="10" height="10"/>
+  <rect class="sd" x="155" y="55" width="10" height="10"/>
+  <rect class="sh" x="165" y="55" width="10" height="10"/>
+  <rect class="sm" x="175" y="55" width="10" height="10"/>
+  <rect class="sm" x="185" y="55" width="10" height="10"/>
+
+  <!-- Row 5 -->
+  <rect class="sm" x="45" y="65" width="10" height="10"/>
+  <rect class="sd" x="55" y="65" width="10" height="10"/>
+  <rect class="sh" x="65" y="65" width="10" height="10"/>
+  <rect class="sh" x="75" y="65" width="10" height="10"/>
+  <rect class="sh" x="85" y="65" width="10" height="10"/>
+  <rect class="sh" x="95" y="65" width="10" height="10"/>
+  <rect class="sh" x="105" y="65" width="10" height="10"/>
+  <rect class="sh" x="115" y="65" width="10" height="10"/>
+  <rect class="sh" x="125" y="65" width="10" height="10"/>
+  <rect class="sh" x="135" y="65" width="10" height="10"/>
+  <rect class="sh" x="145" y="65" width="10" height="10"/>
+  <rect class="sh" x="155" y="65" width="10" height="10"/>
+  <rect class="sd" x="165" y="65" width="10" height="10"/>
+  <rect class="sm" x="175" y="65" width="10" height="10"/>
+  <rect class="sm" x="185" y="65" width="10" height="10"/>
+
+  <!-- Row 6: curve starts -->
+  <rect class="sm" x="45" y="75" width="10" height="10"/>
+  <rect class="sh" x="55" y="75" width="10" height="10"/>
+  <rect class="sd" x="65" y="75" width="10" height="10"/>
+  <rect class="sd" x="75" y="75" width="10" height="10"/>
+  <rect class="sh" x="85" y="75" width="10" height="10"/>
+  <rect class="sh" x="95" y="75" width="10" height="10"/>
+  <rect class="sh" x="105" y="75" width="10" height="10"/>
+  <rect class="sh" x="115" y="75" width="10" height="10"/>
+  <rect class="sh" x="125" y="75" width="10" height="10"/>
+  <rect class="sh" x="135" y="75" width="10" height="10"/>
+  <rect class="sd" x="145" y="75" width="10" height="10"/>
+  <rect class="sd" x="155" y="75" width="10" height="10"/>
+  <rect class="sh" x="165" y="75" width="10" height="10"/>
+  <rect class="sm" x="175" y="75" width="10" height="10"/>
+  <rect class="sm" x="185" y="75" width="10" height="10"/>
+
+  <!-- Row 7 -->
+  <rect class="sm" x="55" y="85" width="10" height="10"/>
+  <rect class="sm" x="65" y="85" width="10" height="10"/>
+  <rect class="sd" x="75" y="85" width="10" height="10"/>
+  <rect class="sd" x="85" y="85" width="10" height="10"/>
+  <rect class="sh" x="95" y="85" width="10" height="10"/>
+  <rect class="sh" x="105" y="85" width="10" height="10"/>
+  <rect class="sh" x="115" y="85" width="10" height="10"/>
+  <rect class="sh" x="125" y="85" width="10" height="10"/>
+  <rect class="sd" x="135" y="85" width="10" height="10"/>
+  <rect class="sd" x="145" y="85" width="10" height="10"/>
+  <rect class="sh" x="155" y="85" width="10" height="10"/>
+  <rect class="sm" x="165" y="85" width="10" height="10"/>
+  <rect class="sm" x="175" y="85" width="10" height="10"/>
+
+  <!-- Row 8 -->
+  <rect class="sm" x="65" y="95" width="10" height="10"/>
+  <rect class="sm" x="75" y="95" width="10" height="10"/>
+  <rect class="sm" x="85" y="95" width="10" height="10"/>
+  <rect class="sd" x="95" y="95" width="10" height="10"/>
+  <rect class="sd" x="105" y="95" width="10" height="10"/>
+  <rect class="sh" x="115" y="95" width="10" height="10"/>
+  <rect class="sd" x="125" y="95" width="10" height="10"/>
+  <rect class="sd" x="135" y="95" width="10" height="10"/>
+  <rect class="sm" x="145" y="95" width="10" height="10"/>
+  <rect class="sm" x="155" y="95" width="10" height="10"/>
+  <rect class="sm" x="165" y="95" width="10" height="10"/>
+
+  <!-- Row 9 -->
+  <rect class="sm" x="85" y="105" width="10" height="10"/>
+  <rect class="sm" x="95" y="105" width="10" height="10"/>
+  <rect class="sm" x="105" y="105" width="10" height="10"/>
+  <rect class="sd" x="115" y="105" width="10" height="10"/>
+  <rect class="sd" x="125" y="105" width="10" height="10"/>
+  <rect class="sm" x="135" y="105" width="10" height="10"/>
+  <rect class="sm" x="145" y="105" width="10" height="10"/>
+
+  <!-- Row 10: bottom tip -->
+  <rect class="sm" x="105" y="115" width="10" height="10"/>
+  <rect class="sm" x="115" y="115" width="10" height="10"/>
+  <rect class="sm" x="125" y="115" width="10" height="10"/>
+  <rect class="sm" x="135" y="115" width="10" height="10"/>
+
+  <!-- === FACE === -->
+  <!-- Left eye -->
+  <rect class="ey" x="95" y="55" width="10" height="10"/>
+  <!-- Right eye -->
+  <rect class="ey" x="135" y="55" width="10" height="10"/>
+  <!-- Left eye highlight -->
+  <rect class="hw" x="97" y="57" width="4" height="4"/>
+  <!-- Right eye highlight -->
+  <rect class="hw" x="137" y="57" width="4" height="4"/>
+  <!-- Smile -->
+  <rect class="td" x="105" y="75" width="10" height="6"/>
+  <rect class="td" x="115" y="77" width="10" height="4"/>
+  <rect class="td" x="125" y="75" width="10" height="6"/>
+
+  <!-- === TEXT === -->
+  <text x="120" y="148" text-anchor="middle" font-size="14" font-weight="bold" fill="#C4913E" letter-spacing="2">TACO</text>
+</svg>

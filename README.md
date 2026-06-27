@@ -1,6 +1,7 @@
 # TACO-RESEARCH
 
 > **T**eam **A**gent for **C**ode & **O**utput **R**esearch
+> <br><sub><sub><img src="figures/taco.svg" width="180" alt="TACO"></sub></sub>
 
 <p align="center">
   <a href="README_CN.md">🇨🇳 中文版</a>
