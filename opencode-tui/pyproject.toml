@@ -1,0 +1,21 @@
+[project]
+name = "opencode-tui"
+version = "0.1.0"
+description = "Python TUI dashboard with opencode aesthetics and dual-backend support (Redis + opencode HTTP API)"
+requires-python = ">=3.11"
+dependencies = [
+    "textual>=0.40.0",
+    "httpx>=0.27.0",
+    "rich>=13.0.0",
+    "redis>=5.0.0",
+    "mcp>=1.0.0",
+]
+
+[project.scripts]
+opencode-tui = "opencode_tui.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

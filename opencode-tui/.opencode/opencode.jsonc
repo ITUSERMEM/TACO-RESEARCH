@@ -1,0 +1,52 @@
+{
+  "$schema": "https://opencode.ai/schemas/opencode.json",
+  "provider": {
+    "zen": {
+      "apiKey": "$ZEN_API_KEY"
+    },
+    "ark": {
+      "apiKey": "$ARK_API_KEY"
+    },
+    "deepseek": {
+      "apiKey": "$DEEPSEEK_API_KEY"
+    }
+  },
+  "mcp": {
+    "academic-pipeline": {
+      "type": "local",
+      "command": ["python", "-m", "academic_mcp.academic_server"],
+      "cwd": "/home/opencode/ATTM/opencode-tui"
+    }
+  },
+  "permission": {
+    "default": "once",
+    "rules": [
+      {
+        "pattern": "bash",
+        "allow": "once"
+      },
+      {
+        "pattern": "read",
+        "allow": "always"
+      },
+      {
+        "pattern": "grep",
+        "allow": "always"
+      },
+      {
+        "pattern": "glob",
+        "allow": "always"
+      }
+    ]
+  },
+  "tools": {
+    "Bash": true,
+    "Read": true,
+    "Edit": true,
+    "Write": true,
+    "Grep": true,
+    "Glob": true,
+    "WebFetch": true,
+    "Task": true
+  }
+}
