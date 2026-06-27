@@ -68,7 +68,7 @@ class PhaseRing(Static):
         self._render()
 
     def _render(self):
-        lines = ["[bold #fab283]── Phase Progress ──[/]"]
+        lines = ["[bold #61afef]── Phase Progress ──[/]"]
         for i in range(6):
             label = phase_label(i)
             color = PHASE_COLORS.get(i, TEXT_MUTED)

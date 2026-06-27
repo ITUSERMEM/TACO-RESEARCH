@@ -69,7 +69,7 @@ class CostBudget(Static):
         return SUCCESS
 
     def _render(self):
-        lines = [f"[bold #f5a742]── Budget/Cost ──[/]"]
+        lines = [f"[bold #61afef]── Budget/Cost ──[/]"]
 
         s_color = self._color_for_pct(self._session_pct)
         s_bar = self._bar(self._session_pct)

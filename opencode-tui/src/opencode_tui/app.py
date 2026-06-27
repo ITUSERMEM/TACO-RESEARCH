@@ -359,8 +359,9 @@ class DashboardApp(App):
         ta = event.text_area
         text = ta.text
         if "\n" in text:
-            ta.text = text.replace("\n", "").strip()
-            self._handle_input(text.replace("\n", "").strip())
+            clean = text.replace("\n", "").strip()
+            ta.text = ""
+            self._handle_input(clean)
 
     def _handle_input(self, text: str):
         if not text:

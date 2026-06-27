@@ -56,24 +56,41 @@ ChatPanel > Static {
 /* ── Prompt Input ─────────────────────────────── */
 #input-area {
     height: auto;
-    max-height: 8;
+    max-height: 12;
     background: #1e1e1e;
     border: none;
     padding: 0 1;
+    border-left: none;
 }
 
 #input-textarea {
     height: 1fr;
+    min-height: 3;
     background: #1e1e1e;
     color: #eeeeee;
     border: none;
-    padding: 1 0;
+    padding: 1 0 1 2;
+    border-left: thick #fab283;
+}
+
+#input-textarea:focus {
+    border-left: thick #fab283;
 }
 
 #input-hint {
     height: 1;
     background: #1e1e1e;
     color: #808080;
+    padding: 0 0 0 2;
+}
+
+#cmd-suggest {
+    height: auto;
+    max-height: 8;
+    background: #141414;
+    color: #808080;
+    padding: 1 0 1 2;
+    border-left: thick #808080;
 }
 
 /* ── Right Panel (Sidebar) ────────────────────── */
