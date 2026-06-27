@@ -16,7 +16,7 @@ from rich.panel import Panel
 from textual.widgets import Static
 
 from opencode_tui.theme import (
-    PRIMARY, SECONDARY, TEXT, TEXT_MUTED,
+    SECONDARY, TEXT, TEXT_MUTED,
     BG_PANEL, BG_ROOT, BORDER, SUCCESS, ERROR,
 )
 
@@ -24,7 +24,7 @@ from opencode_tui.theme import (
 def bar_message(
     text: str,
     *,
-    bar_color: str = PRIMARY,
+    bar_color: str = TEXT,
     text_color: str = TEXT,
     bg: str = BG_PANEL,
     bold: bool = False,
@@ -40,7 +40,7 @@ def bar_message(
 
 
 def user_message(text: str) -> Table:
-    return bar_message(text, bar_color=PRIMARY, text_color=TEXT, bg=BG_PANEL)
+    return bar_message(text, bar_color=TEXT, text_color=TEXT, bg=BG_PANEL)
 
 
 def assistant_message(text: str) -> Table:
