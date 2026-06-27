@@ -97,7 +97,7 @@ class DashboardApp(App):
         self._connected = ok
 
         pi = self.query_one("#project-info", Static)
-        mode_c = "#fab283" if self._mode == "opencode" else "#5c9cf5"
+        mode_c = "#808080" if self._mode == "opencode" else "#5c9cf5"
         status_text = "connected" if ok else "disconnected"
         status_color = "#7fd88f" if ok else "#e06c75"
         pi.update(
@@ -380,7 +380,7 @@ class DashboardApp(App):
 
         if base == "/help":
             for c, d in COMMANDS.items():
-                chat.write(f"[dim {TEXT_MUTED}]┃[/] [bold #fab283]{c:<8}[/] [dim {TEXT_MUTED}]{d}[/]")
+                chat.write(f"[dim {TEXT_MUTED}]┃[/] [bold {TEXT_MUTED}]{c:<8}[/] [dim {TEXT_MUTED}]{d}[/]")
         elif base == "/clear":
             chat.clear()
         elif base == "/mode":
@@ -433,7 +433,7 @@ class DashboardApp(App):
     async def _show_diag(self):
         chat = self.query_one(ChatPanel)
         backend_name = self._backend.name if self._backend else "none"
-        chat.write(f"[bold #e5c07b]── Diagnostics ──[/]")
+        chat.write(f"[bold {TEXT_MUTED}]── Diagnostics ──[/]")
         chat.write(f"[dim]┃  backend:     {backend_name}[/]")
         chat.write(f"[dim]┃  connected:   {self._connected}[/]")
         chat.write(f"[dim]┃  mode:        {self._mode}[/]")

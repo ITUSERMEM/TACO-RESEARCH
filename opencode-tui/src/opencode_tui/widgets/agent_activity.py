@@ -8,13 +8,13 @@ from textual.widgets import RichLog
 
 from opencode_tui.theme import (
     TEXT, TEXT_MUTED, BG_PANEL, BG_ROOT,
-    SECONDARY, PRIMARY, ACCENT,
+    SECONDARY, ACCENT,
 )
 
 
 TIER_COLORS = {
     "executor": SECONDARY,
-    "reviewer": PRIMARY,
+    "reviewer": SECONDARY,
     "pro": ACCENT,
 }
 

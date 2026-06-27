@@ -164,7 +164,7 @@ AgentActivity {
 }
 
 .mode-btn-active {
-    color: #fab283;
+    color: #808080;
     text-style: bold;
 }
 

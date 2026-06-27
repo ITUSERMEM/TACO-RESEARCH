@@ -20,7 +20,7 @@ class Spinner(Static):
         self,
         label: str = "",
         *,
-        color: str = "#fab283",
+        color: str = "#808080",
         paused: bool = False,
         **kwargs,
     ):

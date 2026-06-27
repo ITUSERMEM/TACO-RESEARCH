@@ -68,7 +68,7 @@ SYNTAX_PUNCTUATION = TEXT
 # ── Phase (P0-P5) ───────────────────────────────────────
 PHASE_COLORS = {
     0: SECONDARY,      # 蓝 — 环境初始化
-    1: PRIMARY,        # 桃 — 文献调研
+    1: SECONDARY,      # 蓝 — 文献调研
     2: ACCENT,         # 紫 — 方案设计
     3: SUCCESS,        # 绿 — 实验验证
     4: WARNING,        # 橙 — 代码实现
@@ -94,7 +94,7 @@ FUSION_GATES = {2, 5, 7}
 # ── Agent Tier Colors ───────────────────────────────────
 TIER_COLORS = {
     "executor": SECONDARY,
-    "reviewer": PRIMARY,
+    "reviewer": SECONDARY,
     "pro": ACCENT,
 }
 

@@ -10,7 +10,7 @@
 from textual.widgets import Static
 
 from opencode_tui.theme import (
-    TEXT, TEXT_MUTED, SUCCESS, WARNING, ERROR, PRIMARY, BG_PANEL,
+    TEXT, TEXT_MUTED, SUCCESS, ERROR, SECONDARY, BG_PANEL,
 )
 
 
@@ -65,7 +65,7 @@ class CostBudget(Static):
         if pct >= 90:
             return ERROR
         if pct >= 70:
-            return WARNING
+            return SECONDARY
         return SUCCESS
 
     def _render(self):
@@ -91,6 +91,6 @@ class CostBudget(Static):
         )
 
         if self._alert:
-            lines.append(f"  [{WARNING}]⚠ {self._alert}[/]")
+            lines.append(f"  [{SECONDARY}]⚠ {self._alert}[/]")
 
         self.update("\n".join(lines))

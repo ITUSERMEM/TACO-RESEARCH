@@ -7,13 +7,13 @@ Fusion gates (G2/G5/G7) 标记 ⚡。
 from textual.widgets import Static
 
 from opencode_tui.theme import (
-    TEXT, TEXT_MUTED, SUCCESS, WARNING, ERROR, PRIMARY, FUSION_GATES,
+    TEXT, TEXT_MUTED, SUCCESS, ERROR, SECONDARY, FUSION_GATES,
 )
 
 
 VERDICT_COLORS = {
     "pass": SUCCESS,
-    "revise": WARNING,
+    "revise": SECONDARY,
     "fail": ERROR,
     "pending": TEXT_MUTED,
 }

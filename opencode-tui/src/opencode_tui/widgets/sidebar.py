@@ -14,7 +14,7 @@ from textual.containers import Vertical, VerticalScroll
 from textual.widgets import Static
 from textual.app import ComposeResult
 
-from opencode_tui.theme import TEXT, TEXT_MUTED, BG_PANEL, PRIMARY
+from opencode_tui.theme import TEXT, TEXT_MUTED, BG_PANEL
 from opencode_tui.widgets.phase_ring import PhaseRing
 from opencode_tui.widgets.cost_budget import CostBudget
 from opencode_tui.widgets.gate_status import GateStatus
@@ -43,7 +43,7 @@ class ProjectInfo(Static):
         self._render()
 
     def _render(self):
-        mode_color = "#fab283" if self._mode == "opencode" else "#5c9cf5"
+        mode_color = "#808080" if self._mode == "opencode" else "#5c9cf5"
         self.update(
             f"[bold #eeeeee]{self._title or 'opencode-tui'}[/]\n"
             f"[dim #808080]{self._status} · [/]"
