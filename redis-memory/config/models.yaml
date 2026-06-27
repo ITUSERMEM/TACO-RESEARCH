@@ -1,0 +1,72 @@
+# Model Registry — Single source of truth for all LLM endpoints.
+# Each tier (small/medium/large) maps to a capability level.
+# Providers are tried in order on failure.
+
+tiers:
+  small:
+    description: "Cheap, fast — for summarization, routine review, skill selection"
+    providers:
+      - provider: ark
+        model: glm-5.2
+        base_url: "https://ark.cn-beijing.volces.com/api/coding/v3"
+        api_key_env: ARK_API_KEY
+        timeout: 30
+        max_retries: 1
+        tpm: 100000
+        capabilities: [text]
+        cost:
+          input_per_1k: 0.001
+          output_per_1k: 0.002
+
+  medium:
+    description: "Balanced — for agent iteration, tool use, paper writing"
+    providers:
+      - provider: opencode
+        model: deepseek-v4-flash
+        base_url: "https://opencode.ai/zen/go/v1"
+        api_key_env: ZEN_API_KEY
+        timeout: 60
+        max_retries: 2
+        tpm: 50000
+        capabilities: [text, reasoning]
+        cost:
+          input_per_1k: 0.002
+          output_per_1k: 0.004
+      - provider: ark
+        model: glm-5.2
+        base_url: "https://ark.cn-beijing.volces.com/api/coding/v3"
+        api_key_env: ARK_API_KEY
+        timeout: 60
+        max_retries: 1
+        tpm: 50000
+        capabilities: [text]
+        cost:
+          input_per_1k: 0.001
+          output_per_1k: 0.002
+
+  large:
+    description: "Powerful — for deep audit, proof check, complex citation verification"
+    providers:
+      - provider: deepseek
+        model: deepseek-v4-pro
+        base_url: "https://api.deepseek.com/v1"
+        api_key_env: DEEPSEEK_API_KEY
+        timeout: 120
+        max_retries: 2
+        tpm: 5000
+        capabilities: [text, reasoning, analysis]
+        cost:
+          input_per_1k: 0.005
+          output_per_1k: 0.010
+
+# Task → tier mapping
+routing:
+  skill_selection: small
+  summarization: small
+  gate_review: small
+  agent_iteration: medium
+  tool_execution: medium
+  paper_writing: medium
+  deep_audit: large
+  proof_check: large
+  citation_verify: large

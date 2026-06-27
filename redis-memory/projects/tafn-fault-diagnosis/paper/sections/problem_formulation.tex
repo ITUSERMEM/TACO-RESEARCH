@@ -1,0 +1,35 @@
+\section{Problem Formulation}
+\label{sec:problem}
+
+We formulate rotating machinery fault diagnosis as a few-shot classification problem under varying operating conditions. We define three orthogonal spaces that characterize the physical state of the machinery and the data representation.
+
+\subsection{Physical State Space and Data Representation}
+
+Let $\mathcal{C} = \{c_1, c_2, \dots, c_J\}$ denote the \textit{operating condition space}, where each $c_i \in \mathcal{C}$ specifies a unique combination of load and rotational speed. The operating condition determines the background distribution $P_{\text{bg}}(x \mid c_i)$ of the vibration signal, introducing distinct patterns of harmonic components, resonance frequencies, and noise characteristics.
+
+Let $\mathcal{H} = \{y_{\text{NO}}, y_{\text{IR}}, y_{\text{OR}}, y_{\text{BF}}, y_{\text{CF}}, y_{\text{CM}}\}$ denote the \textit{health state space}, comprising six distinct conditions: Normal (NO), Inner Race fault (IR), Outer Race fault (OR), Ball fault (BF), Cage fault (CF), and Compound fault (CM). The goal is to learn a mapping $f: \mathcal{X} \rightarrow \mathcal{H}$ that is invariant to the operating condition $c_i$.
+
+We define the \textit{dual-stream heterogeneous input space} $\mathcal{X}$ consisting of paired observations $x = \{x^t, x^s\}$, where:
+\begin{itemize}
+    \item $x^t \in \mathbb{R}^L$ denotes the raw temporal vibration waveform of length $L$, sampled at a fixed rate. The temporal signal preserves the full time-domain dynamics, including transient impacts, resonance buildups, and modulation effects.
+    \item $x^s \in \mathbb{R}^{F \times T}$ denotes the Mel-scaled spectrogram with $F$ frequency bins and $T$ time frames. The Mel-spectrogram compresses the frequency axis according to human perceptual scaling, emphasizing lower frequencies where fault-related harmonics are typically concentrated.
+\end{itemize}
+
+\subsection{Few-Shot Task Formulation}
+
+Following the episodic meta-learning paradigm~\cite{finn2017maml,snell2017prototypical}, we formulate the diagnosis problem as a distribution of few-shot tasks $\mathcal{T} \sim p(\mathcal{T})$. Each task $\tau \in \mathcal{T}$ consists of:
+
+\begin{itemize}
+    \item A \textit{support set} $\mathcal{S}_\tau = \{(x_k, y_k)\}_{k=1}^{N \times K}$, containing $K$ labeled examples for each of $N$ fault classes drawn from a specific operating condition.
+    \item A \textit{query set} $\mathcal{Q}_\tau = \{(x_q, y_q)\}_{q=1}^{N \times Q}$, containing $Q$ unlabeled examples per class from the same or a different operating condition for evaluation.
+\end{itemize}
+
+The meta-training objective is to learn an initial parameterization $\theta$ such that for any task $\tau$, a small number of gradient steps on $\mathcal{S}_\tau$ yields a classifier $f_\theta$ that generalizes well to $\mathcal{Q}_\tau$:
+
+\begin{equation}
+\min_{\theta} \mathbb{E}_{\tau \sim p(\mathcal{T})} \left[ \mathcal{L}_{\text{meta}}(f_{\theta'}, \mathcal{Q}_\tau) \right],
+\quad \theta' = \theta - \alpha \nabla_\theta \mathcal{L}_{\text{task}}(f_\theta, \mathcal{S}_\tau),
+\label{eq:meta_objective}
+\end{equation}
+
+where $\mathcal{L}_{\text{task}}$ is the task-specific loss computed on the support set, $\mathcal{L}_{\text{meta}}$ is the meta-objective evaluated on the query set, and $\alpha$ is the adaptation learning rate. The key challenge lies in learning features that generalize across operating conditions while remaining discriminative across health states.

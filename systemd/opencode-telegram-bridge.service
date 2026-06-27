@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenCode Telegram Bot Bridge
+Documentation=https://opencode.ai
+After=redis-stack.service network-online.target
+Requires=redis-stack.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+User=root
+WorkingDirectory=/root/.config/opencode/telegram_bridge
+Environment=HTTP_PROXY=http://127.0.0.1:7892
+Environment=HTTPS_PROXY=http://127.0.0.1:7892
+Environment=TELEGRAM_BOT_TOKEN=8819262608:AAHX1SK3Swt-YWJj0F5H8zSI9KGDwux7ZDI
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=/root/anaconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/root/anaconda3/bin/python3 /root/.config/opencode/telegram_bridge/telegram_bridge.py
+ExecStopPost=-/usr/bin/tmux kill-session -t opencode
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

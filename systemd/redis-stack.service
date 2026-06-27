@@ -1,0 +1,21 @@
+[Unit]
+Description=Redis Stack Server (with AOF persistence)
+Documentation=https://redis.io/docs/stack/
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Restart=always
+RestartSec=5
+ExecStartPre=-/usr/bin/docker rm -f redis-stack
+ExecStart=/usr/bin/docker run --rm \
+  --name redis-stack \
+  -p 6379:6379 \
+  -v /data/redis-stack:/var/lib/redis-stack \
+  redis/redis-stack-server:latest \
+  redis-stack-server --appendonly yes
+ExecStop=/usr/bin/docker stop -t 5 redis-stack
+ExecStopPost=-/usr/bin/docker rm -f redis-stack
+
+[Install]
+WantedBy=multi-user.target

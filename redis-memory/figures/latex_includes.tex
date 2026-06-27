@@ -1,0 +1,61 @@
+% === Fig 1: TAFN Architecture ===
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/fig1_architecture.pdf}
+    \caption{Overall architecture of the proposed TAFN (Time-Frequency Aware Fusion Network). The model comprises four branches: a 1D temporal encoder (blue), a 2D spectral encoder (red), a physics-guided prior branch (green), followed by cross-modal fusion (purple) and entropy-regularized meta-learning (yellow).}
+    \label{fig:architecture}
+\end{figure*}
+
+% === Fig 2: Training Curves ===
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{figures/fig2_training_curves.pdf}
+    \caption{Training and validation curves of TAFN. (a) Accuracy; (b) Loss.}
+    \label{fig:training_curves}
+\end{figure}
+
+% === Fig 3: Method Comparison ===
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.48\textwidth]{figures/fig3_comparison.pdf}
+    \caption{Accuracy comparison of different methods on the rotating machinery fault diagnosis benchmark. Error bars indicate standard deviation over 5 independent runs.}
+    \label{fig:comparison}
+\end{figure}
+
+% === Fig 4: Confusion Matrix ===
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.48\textwidth]{figures/fig4_confusion.pdf}
+    \caption{Confusion matrix of TAFN on the 6-class fault diagnosis task. Diagonal values exceed 89\% for all classes, demonstrating balanced performance across all fault types.}
+    \label{fig:confusion}
+\end{figure}
+
+% === Fig 5: Noise Robustness ===
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.48\textwidth]{figures/fig5_noise_robustness.pdf}
+    \caption{Noise robustness analysis across different SNR levels ranging from -8dB to 20dB. TAFN maintains superior performance under heavy noise conditions, with a 9.7\% absolute advantage over ViT at -8dB SNR.}
+    \label{fig:noise_robustness}
+\end{figure}
+
+% === Fig 6: Few-Shot Learning ===
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.48\textwidth]{figures/fig6_fewshot.pdf}
+    \caption{Few-shot learning performance comparison across different numbers of shots per class (1, 3, 5, 10, 20). TAFN consistently outperforms all meta-learning baselines, achieving 80.5\% accuracy with only 5 shots.}
+    \label{fig:fewshot}
+\end{figure}
+
+% === Fig 7: Ablation Study ===
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.48\textwidth]{figures/fig7_ablation.pdf}
+    \caption{Ablation study showing the progressive contribution of each TAFN component. Each addition provides 3.8--4.4\% improvement, with the full model achieving 92.1\% accuracy.}
+    \label{fig:ablation}
+\end{figure}
+
+% === Table 1: Method Comparison ===
+\input{figures/gen_table1_comparison.tex}
+
+% === Table 2: Ablation Study ===
+\input{figures/gen_table2_ablation.tex}

@@ -1,0 +1,55 @@
+\documentclass[journal]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{footnote}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=black
+}
+
+\graphicspath{{figures/}}
+
+\AtBeginDocument{%
+  \renewcommand{\algorithmicrequire}{\textbf{Input:}}
+  \renewcommand{\algorithmicensure}{\textbf{Output:}}
+}
+
+\begin{document}
+
+\title{TAFN: A Time-Frequency Aware Fusion Network with Physics-Guided\\ Meta-Learning for Robust Rotating Machinery Fault Diagnosis}
+
+\author{Anonymous Author(s)}
+
+\maketitle
+
+\begin{abstract}
+\input{sections/abstract}
+\end{abstract}
+
+\begin{IEEEkeywords}
+Rotating machinery fault diagnosis, dual-stream network, physics-guided learning, meta-learning, entropy regularization, time-frequency analysis.
+\end{IEEEkeywords}
+
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/problem_formulation}
+\input{sections/method}
+\input{sections/experiments}
+\input{sections/ablation}
+\input{sections/discussion}
+\input{sections/conclusion}
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

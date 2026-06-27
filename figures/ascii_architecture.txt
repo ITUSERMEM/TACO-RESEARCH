@@ -1,0 +1,141 @@
+╔═══════════════════ 学术团队全架构 ═══════════════════╗
+║                                                     ║
+║  ┌──────────┐   ┌──────────────────────────────┐   ║
+║  │ Telegram │   │  Telegram Bridge             │   ║
+║  │ @bot     │──▶│  telegram_bridge.py          │   ║
+║  └──────────┘   │  publish → academic:inbox    │   ║
+║       ▲         │  subscribe ← academic:outbox │   ║
+║       │         │  subscribe ← academic:progr. │   ║
+║       │         └─────────────┬────────────────┘   ║
+║       │                       │                    ║
+║       │         ┌─────────────▼────────────────┐   ║
+║       │         │     Redis Pub/Sub            │   ║
+║       │         │  inbox / outbox / progress   │   ║
+║       │         └─────────────┬────────────────┘   ║
+║       │                       │                    ║
+║       │         ┌─────────────▼────────────────┐   ║
+║       │         │  AcademicLoop Daemon          │   ║
+║       │         │  process_incoming()          │   ║
+║       │         │    → 记录研究方向到 LTM       │   ║
+║       │         │    → emit pipeline_start     │   ║
+║       │         │    → return pipeline_ack     │   ║
+║       │         │    → thread: _run_pipeline() │   ║
+║       │         └─────────────┬────────────────┘   ║
+║       │                       │                    ║
+║       │         ┌─────────────▼────────────────┐   ║
+║  ◄────┴─────────│  Pipeline Phase 0 → 5        │   ║
+║  edit_text      │  for each phase:             │   ║
+║  实时进度        │    for each iteration:       │   ║
+║  最终结果        │      agent → skill → LLM    │   ║
+║                 │    gate → pass/revise/fail   │   ║
+║                 └──────────────────────────────┘   ║
+║                                                     ║
+╚═════════════════════════════════════════════════════╝
+
+
+───────────────── Phase 0-5 管线 ─────────────────
+
+ Phase 0      Phase 1      Phase 2      Phase 3      Phase 4      Phase 5
+┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐
+│ 环境    │→│ 文献    │→│ 方案    │→│ 实验    │→│ 代码    │→│ 论文    │
+│ 初始化  │  │ 调研    │  │ 设计    │  │ 验证    │  │ 实现    │  │ 撰写    │
+└────────┘  └───┬────┘  └───┬────┘  └───┬────┘  └───┬────┘  └───┬────┘
+                │           │           │           │           │
+           ┌────▼────┐ ┌───▼────┐ ┌───▼────┐ ┌───▼────┐ ┌───▼────┐
+           │Gate 1   │ │Gate 2  │ │Gate 3  │ │Gates   │ │Gate 7  │
+           │查新验证  │ │方案对抗│ │实验审计│ │4-5-6   │ │最终引用│
+           │PASS→    │ │PASS→   │ │PASS→   │ │PASS→   │ │PASS→   │
+           │REVISE↺  │ │REVISE↺ │ │REVISE↺ │ │REVISE↺ │ │提交!   │
+           └─────────┘ └────────┘ └────────┘ └────────┘ └────────┘
+
+
+──────────── 每 Phase 的 Agent 迭代循环 ────────────
+
+ Phase 0         Phase 1          Phase 2         Phase 3
+ ────────        ────────         ────────        ────────
+ 研究项目总监    研究项目总监      方法论研究员     实验工程师
+ 学术编辑       文献研究员        方法评审员      科学计算工程师
+                学术评审员        研究项目总监    学术评审员
+
+ Phase 4                  Phase 5
+ ────────                 ────────
+ 代码工程师              论文写手
+ 可视化设计师            可视化设计师
+ 论文写手               引用审计员
+ 学术评审员              学术编辑
+
+
+──────────── 单次 Agent 迭代 = 6 步 ────────────
+
+ ┌──────┐    ┌──────┐    ┌──────────┐    ┌──────┐    ┌──────┐    ┌──────┐
+ │①激活  │──▶│②选   │──▶│③执行     │──▶│④回注  │──▶│⑤消化  │──▶│⑥完成  │
+ │Agent  │   │Skill │   │opencode  │   │结果   │   │LLM    │   │记录   │
+ │启动   │   │LLM选 │   │subprocess│   │回上下文│   │生成   │   │+LTM   │
+ └──────┘    └──────┘    └──────────┘    └──────┘    └──────┘    └──────┘
+                           │ timeout│
+                           │ 120s   │
+                        ┌──▼───────┐
+                        │git/论文/ │
+                        │实验/搜索 │
+                        │实际产出  │
+                        └──────────┘
+
+
+──────────── 12 位 Agent + Skill 技能树 ────────────
+
+ 指挥层
+ ┌──────────────────────────────────────────────────┐
+ │ 研究项目总监 │ research-pipeline / idea-discovery  │
+ │ 学术编辑     │ paper-compile / latex-rescue        │
+ └──────────────────────────────────────────────────┘
+
+ 执行层
+ ┌──────────────────────────────────────────────────┐
+ │ 文献研究员     │ research-lit / arxiv / paper-read │
+ │ 方法论研究员   │ idea-creator / experiment-plan    │
+ │ 实验工程师     │ experiment-bridge / run-experiment│
+ │ 科学计算工程师  │ pytorch / transformers / numpy   │
+ │ 代码工程师     │ playwright / tdd / n8n           │
+ │ 论文写手       │ paper-write / latex / nature      │
+ │ 可视化设计师   │ paper-figure / mermaid / slides   │
+ └──────────────────────────────────────────────────┘
+
+ 评审层
+ ┌──────────────────────────────────────────────────┐
+ │ 方法评审员     │ proof-checker / kill-argument    │
+ │ 学术评审员     │ experiment-audit / claim-audit   │
+ │ 引用审计员     │ citation-audit / nature-citation │
+ └──────────────────────────────────────────────────┘
+
+
+──────────── 记忆层 ────────────
+
+ ┌────────────┐  Redis Stack（6379）
+ │ LTM        │  长程语义记忆（idx:ltm TAG搜索）
+ │ Session    │  会话历史（idx:session）
+ │ PaperMemory│  论文向量库（384d all-MiniLM-L6-v2）
+ │ SemanticCh.│  LLM 响应缓存（7d TTL）
+ │ Timeseries │  时序指标（TS.ADD/TS.RANGE）
+ └────────────┘
+
+
+──────────── 三模型架构 ────────────
+
+ 执行者       审稿人        深度审计
+ deepseek     glm-5.2      deepseek-v4-pro
+ -v4-flash    llm-chat MCP api.deepseek.com
+ │            │            │
+ ├─ agent迭代  ├─ Gate评估   ├─ Gate 2/5/7
+ ├─ 写作/编码   ├─ 摘要生成   ├─ proof check
+ ├─ 工具调用   ├─ 常规审查   └─ 引用验证
+ └─            └─
+
+
+──────────── 运行中的系统服务 ────────────
+
+ PID  NAME                    STATUS     PORT
+ ───  ────                    ──────     ────
+ 1    redis-stack             active     6379
+ 2    opencode-academic-team  active     9333 (health)
+ 3    opencode-telegram-bridge active   (polling)
+ 4    aris-watchdog           active     (monitoring)

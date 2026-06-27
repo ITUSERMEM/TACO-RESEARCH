@@ -1,0 +1,18 @@
+[Unit]
+Description=ARIS Watchdog Daemon - system health monitoring
+Documentation=https://github.com/anomalyco/opencode
+After=network-online.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+User=root
+WorkingDirectory=/root/aris_repo
+ExecStart=/root/anaconda3/bin/python3 /root/aris_repo/tools/watchdog.py \
+  --base-dir /tmp/aris-watchdog \
+  --interval 60
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

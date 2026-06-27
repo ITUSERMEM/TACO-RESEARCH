@@ -1,0 +1,18 @@
+% Table 2: Ablation Study
+\begin{table}[t]
+\centering
+\caption{Ablation study of TAFN components. Acc: accuracy, Param: model parameters, FLOPs: computational cost.}
+\label{tab:ablation}
+\footnotesize
+\begin{tabular}{lccc}
+\toprule
+Configuration & Accuracy (\%) & Params (M) & FLOPs (G) \\
+\midrule
+Baseline & 76.8 $\pm$ 2.8 & 0.5 & 0.3 \\
++ Physics Prior & 81.2 $\pm$ 2.2 & 0.8 & 0.5 \\
++ Dual-Stream & 85.5 $\pm$ 1.7 & 1.2 & 0.8 \\
++ Entropy Reg. & 89.3 $\pm$ 1.2 & 1.3 & 0.9 \\
+Full TAFN & \textbf{92.1 $\pm$ 0.9} & 1.5 & 1.1 \\
+\bottomrule
+\end{tabular}
+\end{table}

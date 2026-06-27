@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenCode Academic Research Team - Main Orchestrator
+Documentation=https://opencode.ai
+After=redis-stack.service network-online.target
+Requires=redis-stack.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+User=root
+WorkingDirectory=/root/.config/opencode/redis-memory
+Environment=TRANSFORMERS_OFFLINE=1
+# Environment=DEEPSEEK_API_KEY=your-key-here
+Environment=HTTP_PROXY=http://127.0.0.1:7892
+Environment=HTTPS_PROXY=http://127.0.0.1:7892
+Environment=PATH=/root/anaconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/root/anaconda3/bin/python3 /root/.config/opencode/redis-memory/team_launcher.py --project "BH-LLM: LLM-Based Bearing Fault Diagnosis"
+ExecStop=/root/anaconda3/bin/python3 /root/.config/opencode/redis-memory/team_launcher.py --stop
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
