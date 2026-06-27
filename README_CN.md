@@ -10,7 +10,7 @@
 
 <p align="center">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.12%2B-3776AB">
-  <img alt="Tests" src="https://img.shields.io/badge/Tests-269_passing-success">
+  <img alt="Tests" src="https://img.shields.io/badge/Tests-297_passing-success">
   <img alt="Agents" src="https://img.shields.io/badge/Agents-21-blueviolet">
   <img alt="Pipeline" src="https://img.shields.io/badge/Pipeline-Phase_0–5-ff6b6b">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-yellow">
@@ -106,8 +106,30 @@ curl http://127.0.0.1:9333/health
 ├── telegram_bridge/    # Telegram 机器人
 ├── systemd/            # 生产服务配置
 ├── skills/             # 技能定义
-└── figures/            # 架构图
+├── figures/            # 架构图
+└── opencode-tui/       # Python TUI 仪表板 — opencode 视觉风格，双后端（Redis / opencode HTTP API）
 ```
+
+---
+
+## 🖥️ opencode-tui
+
+Python 终端仪表板，融合 opencode 视觉风格 — 左侧聊天面板 + 右侧仪表板（PhaseRing / CostBudget / GateStatus / AgentActivity）。双后端切换：Redis 模式连现有管线，opencode 模式连 HTTP API。
+
+```bash
+cd opencode-tui && pip install -e .
+
+# Redis 模式（连现有管线）
+python -m opencode_tui
+
+# OpenCode 模式（需先启动 opencode serve）
+opencode serve --port 4096 &
+python -m opencode_tui --mode opencode
+```
+
+包含 6 个 opencode agent、6 个 Phase 命令、6 个 MCP tool、28 项测试。
+
+**[完整说明 →](opencode-tui/README.md)**
 
 ---
 

@@ -10,7 +10,7 @@
 
 <p align="center">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.12%2B-3776AB">
-  <img alt="Tests" src="https://img.shields.io/badge/Tests-269_passing-success">
+  <img alt="Tests" src="https://img.shields.io/badge/Tests-297_passing-success">
   <img alt="Agents" src="https://img.shields.io/badge/Agents-21-blueviolet">
   <img alt="Pipeline" src="https://img.shields.io/badge/Pipeline-Phase_0–5-ff6b6b">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-yellow">
@@ -106,8 +106,30 @@ curl http://127.0.0.1:9333/health
 ├── telegram_bridge/    # Telegram bot
 ├── systemd/            # Production services
 ├── skills/             # Skill definitions
-└── figures/            # Diagrams
+├── figures/            # Diagrams
+└── opencode-tui/       # Python TUI dashboard — opencode aesthetics, dual-backend (Redis / opencode HTTP API)
 ```
+
+---
+
+## 🖥️ opencode-tui
+
+Python terminal dashboard with opencode visual style — left chat panel + right sidebar (PhaseRing / CostBudget / GateStatus / AgentActivity). Dual-backend: Redis mode for existing pipeline, opencode mode for HTTP API.
+
+```bash
+cd opencode-tui && pip install -e .
+
+# Redis mode (existing pipeline)
+python -m opencode_tui
+
+# OpenCode mode (opencode serve required)
+opencode serve --port 4096 &
+python -m opencode_tui --mode opencode
+```
+
+Includes 6 opencode agents, 6 Phase commands, 6 MCP tools, and 28 tests.
+
+**[Full README →](opencode-tui/README.md)**
 
 ---
 
