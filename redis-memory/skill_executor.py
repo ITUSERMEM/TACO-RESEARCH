@@ -69,17 +69,20 @@ class SkillExecutor:
 
     def run_skill(self, skill_name: str, args: str = "",
                   progress_callback=None, phase: int = -1,
-                  agent_role: str = "unknown") -> dict:
+                  agent_role: str = "unknown", scan_dir: Optional[str] = None) -> dict:
         """Execute a skill via `opencode run` with streaming output.
 
         Supports optional SkillContract protection:
         - Pre-condition: input schema + state isolation check
         - In-flight: entropy monitoring
         - Audit logging (if audit_logger provided)
+
+        If scan_dir is provided, collects relative paths of new files created.
         """
         import shlex
         safe_args = shlex.quote(args[:300]) if args else ""
         cwd = os.getcwd()
+        pre_set = self._snapshot_files(scan_dir) if scan_dir else set()
         cmd = f"timeout {SKILL_TIMEOUT} opencode run --dir {cwd} /{skill_name} {safe_args}".strip()
         start = time.time()
         all_lines = []
@@ -91,12 +94,12 @@ class SkillExecutor:
             if not pre["valid"]:
                 self._log_contract_violation(skill_name, "pre", pre["issues"])
                 if not self.contract_config.is_log_only():
-                    return {
+                    return self._add_file_paths({
                         "status": "error",
                         "output": f"[CONTRACT FAIL] Pre-validation: {pre['issues']}",
                         "elapsed_sec": 0,
                         "contract_violation": True,
-                    }
+                    }, scan_dir, pre_set)
 
         try:
             proc = subprocess.Popen(
@@ -162,7 +165,7 @@ class SkillExecutor:
                         result = {"status": status, "output": output,
                                   "elapsed_sec": round(elapsed, 1)}
                         self._record_audit(skill_name, args, result, start, phase, agent_role)
-                        return result
+                        return self._add_file_paths(result, scan_dir, pre_set)
 
                     poll = proc.poll()
                     if poll is not None:
@@ -193,16 +196,16 @@ class SkillExecutor:
                 result = {"status": "error", "output": output or stderr_out, "elapsed_sec": round(elapsed, 1)}
 
             self._record_audit(skill_name, args, result, start, phase, agent_role)
-            return result
+            return self._add_file_paths(result, scan_dir, pre_set)
 
         except FileNotFoundError:
             result = {"status": "error", "output": "opencode CLI not found", "elapsed_sec": 0}
             self._record_audit(skill_name, args, result, start, phase, agent_role)
-            return result
+            return self._add_file_paths(result, scan_dir, pre_set)
         except Exception as e:
             result = {"status": "error", "output": str(e)[:1000], "elapsed_sec": round(time.time() - start, 1)}
             self._record_audit(skill_name, args, result, start, phase, agent_role)
-            return result
+            return self._add_file_paths(result, scan_dir, pre_set)
         finally:
             if proc and proc.poll() is None:
                 try:
@@ -227,6 +230,29 @@ class SkillExecutor:
             )
         except Exception:
             pass
+
+    def _snapshot_files(self, scan_dir: str) -> set:
+        """Return set of relative file paths under scan_dir."""
+        paths = set()
+        if not scan_dir or not os.path.isdir(scan_dir):
+            return paths
+        for root, _dirs, files in os.walk(scan_dir):
+            for f in files:
+                paths.add(os.path.relpath(os.path.join(root, f), scan_dir))
+        return paths
+
+    def _diff_files(self, scan_dir: str, pre_set: set) -> list:
+        """Return sorted list of new relative file paths since pre_set."""
+        cur = self._snapshot_files(scan_dir)
+        return sorted(cur - pre_set)
+
+    def _add_file_paths(self, result: dict, scan_dir: Optional[str], pre_set: set) -> dict:
+        """Attach file_paths to result dict and return it."""
+        if scan_dir and os.path.isdir(scan_dir):
+            result["file_paths"] = self._diff_files(scan_dir, pre_set)
+        else:
+            result["file_paths"] = []
+        return result
 
     def _log_contract_violation(self, skill_name: str, stage: str, issues: list):
         """Record contract violation to Redis list for monitoring."""

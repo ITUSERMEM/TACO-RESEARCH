@@ -25,15 +25,18 @@ from redis import Redis
 from agent_memory import AgentMemory
 from semantic_cache import SemanticCache
 from llm_client import LLMClient, DualLLM
-from gate_judge import GateJudge
+from complexity_router import ComplexityRouter
+from cost_ledger import CostLedger
+from gate_judge import GateJudge, FUSION_GATES
+from hallucination_guard import HallucinationGuard
+from heartbeat import Heartbeat, HeartbeatConfig
 from loop_detector import PhaseLoopDetector, LoopAction
+from model_registry import ModelRegistry
 from skill_executor import SkillExecutor
 from audit_logger import AuditLogger
 from skill_contract import SkillContract
+from summarizer import PhaseSummarizer
 from token_budget import TokenBudget
-from complexity_router import ComplexityRouter
-from cost_ledger import CostLedger
-from model_registry import ModelRegistry
 
 ROLE_CN = {
     "research-director": "研究项目总监", "academic-editor": "学术编辑",
@@ -411,18 +414,29 @@ class AcademicLoop:
         redis_url: str = "redis://localhost:6379",
         namespace: str = "academic",
         project_title: Optional[str] = None,
+        output_dir: Optional[str] = None,
         daemon_mode: bool = False,
     ):
+        self.output_dir = os.path.abspath(output_dir or os.getcwd())
         self.r = Redis.from_url(redis_url, decode_responses=True)
         self.mem = AgentMemory(redis_url=redis_url, namespace=namespace)
         self.cache = SemanticCache(similarity_threshold=0.5)
         self.tracker = PhaseTracker(self.r, namespace=namespace)
         self.compactor = ContextCompactor(self.mem)
-        self.llm = DualLLM()
+        self.llm = DualLLM(cache=self.cache)
         self.gate_judge = GateJudge(
             reviewer_llm=self.llm.reviewer,
             pro_llm=self.llm.pro,
         )
+        # P2: HallucinationGuard — 3-layer hallucination detection
+        self.hallucination_guard = HallucinationGuard()
+        # P3: ComplexityRouter + ModelRegistry — dynamic iteration + degrade
+        self.router = ComplexityRouter()
+        self.model_registry = ModelRegistry()
+        # P4: PhaseSummarizer — structured phase summaries
+        self.summarizer = PhaseSummarizer(llm=self.llm.reviewer)
+        # P6: Heartbeat — per-agent periodic health checks
+        self.heartbeat = Heartbeat()
         self.audit = AuditLogger(
             log_dir="/var/log/academic-team",
             redis_url=redis_url,
@@ -439,11 +453,15 @@ class AcademicLoop:
         )
         self.namespace = namespace
         self.project_id = str(uuid.uuid4())[:12]
+        self.project_dir = os.path.join(self.output_dir, "projects", self.project_id)
         self.daemon_mode = daemon_mode
         self._running = False
         self._progress_channel = "academic:progress"
         self._chat_id = ""
         self._outbox_channel = "academic:outbox"
+
+        if project_title:
+            self.tracker._set("$.project_title", project_title)
 
         # P0-1: TokenBudget for pipeline-level token enforcement
         self.budget = TokenBudget(
@@ -453,15 +471,16 @@ class AcademicLoop:
         )
         # P0-2: CostLedger for append-only cost tracking with snapshotMax
         self.cost_ledger = CostLedger(self.r)
-        # P1-3: ComplexityRouter for dynamic task routing
-        self.router = ComplexityRouter()
-        # P3-a: ModelRegistry for fusion pricing
-        self.model_registry = ModelRegistry()
-
-        if project_title:
-            self.tracker._set("$.project_title", project_title)
 
         self._phase_results: dict[int, dict] = {}
+        self._create_project_structure()
+
+    def _create_project_structure(self):
+        """Create project output directory structure for file artifacts."""
+        subdirs = ["paper", "figures", "data", "idea-stage", "refine-logs", "review-stage"]
+        for sub in subdirs:
+            os.makedirs(os.path.join(self.project_dir, sub), exist_ok=True)
+        print(f"[AcademicLoop] Project directory: {self.project_dir}")
 
     @property
     def current_phase(self) -> Phase:
@@ -475,24 +494,15 @@ class AcademicLoop:
         print(f"[AcademicLoop] Pipeline: {PHASE_LABELS[start_phase]} → {PHASE_LABELS[end_phase]}")
         print()
 
-        # P1-3: Complexity-based routing — adjust iterations for simple tasks
-        task_text = self.tracker.state.get("project_title", "") or ""
-        routing = self.router.route(task_text) if task_text else {"strategy": "research", "complexity": 0.5}
-        self._routing_info = routing
-        complexity = routing.get("complexity", 0.5)
-        strategy = routing.get("strategy", "research")
-        print(f"[AcademicLoop] Complexity: {complexity:.2f} → strategy: {strategy}")
-
-        # Dynamic iteration adjustment based on complexity
-        adjusted_iters = dict(MAX_ITERATIONS)
-        if strategy == "simple":
-            for phase_key in adjusted_iters:
-                adjusted_iters[phase_key] = max(1, adjusted_iters[phase_key] // 2)
-            print(f"[AcademicLoop] Simple task: iterations halved")
-        elif strategy == "react":
-            for phase_key in adjusted_iters:
-                adjusted_iters[phase_key] = max(1, int(adjusted_iters[phase_key] * 0.75))
-        self._adjusted_iters = adjusted_iters
+        # P6: Start heartbeat agents for all phase agents
+        all_agents = set()
+        for p in Phase:
+            all_agents.update(PHASE_AGENTS.get(p, []))
+        for agent in all_agents:
+            cfg = HeartbeatConfig(agent=agent, interval_secs=120)
+            self.heartbeat.register(cfg)
+        self.heartbeat.start()
+        print(f"[AcademicLoop] Heartbeat started for {len(all_agents)} agents")
 
         for phase in Phase:
             if phase.value < start_phase.value:
@@ -502,6 +512,8 @@ class AcademicLoop:
 
             self._execute_phase(phase)
 
+        self.heartbeat.stop()
+        print(f"[AcademicLoop] Heartbeat stopped")
         print(f"\n[AcademicLoop] Pipeline complete")
         print(f"[AcademicLoop] Completed phases: {self.tracker.state.get('completed_phases')}")
 
@@ -527,10 +539,19 @@ class AcademicLoop:
         watchdog = Watchdog(WatchdogConfig.for_phase(phase))
         session_id = f"phase{phase.value}-{self.project_id}"
 
-        max_iters = self._adjusted_iters.get(phase, MAX_ITERATIONS[phase])
+        max_iters = MAX_ITERATIONS[phase]
         agents = PHASE_AGENTS[phase]
         print(f"  Agents: {', '.join(agents)}")
-        print(f"  Max iterations: {max_iters}")
+        # P3: Dynamically adjust iterations based on task complexity
+        task_text = self.tracker.state.get("project_title", "") or ""
+        complexity = self.router.compute(task_text)
+        if complexity < 0.3:
+            max_iters = max(max_iters // 2, 1)
+        elif complexity > 0.7:
+            max_iters = max_iters * 2
+        self._emit_progress(phase.value, "phase_planned",
+                            f"Complexity: {complexity:.2f} → max_iters: {max_iters}")
+        print(f"  Complexity: {complexity:.2f} → max_iters: {max_iters}")
         print()
 
         self._emit_progress(phase.value, "phase_start", f"Phase {phase.value}: {label}",
@@ -591,6 +612,9 @@ class AcademicLoop:
         # Persist learnings before phase transition
         self._persist_learnings(phase, session_id, messages)
 
+        # Collect file artifacts generated during this phase
+        artifacts = self._collect_phase_artifacts(phase)
+
         # Mark phase complete
         self.tracker.phase_complete(phase)
         self.mem.record_event("phase_complete", time.time(),
@@ -647,28 +671,6 @@ class AcademicLoop:
             "issues": result.get("issues", []),
             "recommendations": result.get("recommendations", []),
         }
-
-        # P2-2: Record gate evaluation cost as sub-agent in CostLedger
-        # Fusion gates (G2, G5, G7) cost 2x LLM calls; estimate ~400 tokens input per call
-        is_fusion = gate_id in getattr(self.gate_judge, 'FUSION_GATES', set())
-        estimated_input = 800 if is_fusion else 400
-        estimated_output = 400 if is_fusion else 200
-        fusion_cost = self.model_registry.get_fusion_cost(estimated_input, estimated_output) if is_fusion else 0.0
-        gate_tier = GateJudge.GATE_TIER.get(gate_id, "reviewer")
-        self.cost_ledger.record_run(
-            project_id=self.project_id,
-            session_id=session_id,
-            model=gate_tier,
-            role="subagent",
-            delta={
-                "cost_usd": fusion_cost,
-                "input_tokens": estimated_input,
-                "output_tokens": estimated_output,
-                "cached_tokens": 0,
-                "total_tokens": estimated_input + estimated_output,
-            },
-        )
-
         return verdict, details
 
     @staticmethod
@@ -729,6 +731,7 @@ class AcademicLoop:
             skill_result = self.skill_executor.run_skill(
                 chosen_skill, task[:200], progress_callback=_on_skill_line,
                 phase=phase.value, agent_role=role,
+                scan_dir=self.project_dir,
             )
 
             skill_output = skill_result.get("output", "")
@@ -752,24 +755,6 @@ class AcademicLoop:
                             f"🧠 {role_cn} → 正在整合结果生成回答...",
                             pct_base + 40)
 
-        tier_name = AGENT_TIER.get(chosen_skill or "", "executor")
-
-        # P0-1: TokenBudget check before LLM call
-        budget_status = self.budget.check()
-        if budget_status["action"] == "stop":
-            messages.append({"role": "system", "content": "[Budget exceeded: stopping phase]"})
-            self._emit_progress(phase.value, "budget_stop",
-                                f"🛑 Token budget exceeded — stopping", pct_base + 40)
-            print(f"  [{iteration}] 🛑 Budget exceeded — stopping iteration")
-            return
-        elif budget_status["action"] == "degrade":
-            tier_name = self.budget.degrade_model(tier_name)
-            self._emit_progress(phase.value, "budget_degrade",
-                                f"⚠️ Budget tight — degraded to {tier_name}", pct_base + 40)
-            print(f"  [{iteration}] ⚠️ Budget degrade → {tier_name}")
-        elif budget_status["action"] == "warn":
-            print(f"  [{iteration}] ⚠️ Budget warning ({budget_status['max_pct']:.0f}%)")
-
         context_messages = [{"role": "system", "content": self._build_agent_prompt(role, phase, messages)}]
         if skill_output and len(skill_output) > 20:
             context_messages.append({
@@ -778,11 +763,30 @@ class AcademicLoop:
             })
         context_messages += messages[-3:]
 
+        tier_name = AGENT_TIER.get(chosen_skill or "", "executor")
         agent_llm = {
             "executor": self.llm.executor,
             "reviewer": self.llm.reviewer,
             "pro": self.llm.pro,
         }[tier_name]
+
+        # P3: Check budget before LLM call — degrade or stop if needed
+        budget_status = self.budget.check()
+        if budget_status["action"] == "stop":
+            self._emit_progress(phase.value, "budget_stop",
+                                f"🛑 Budget exhausted ({budget_status['max_pct']}%)")
+            response = "[Budget stop: token limit exceeded]"
+            messages.append({"role": "assistant", "content": response})
+            return
+        if budget_status["action"] == "degrade":
+            degraded_tier = budget_status["degrade_tier"]
+            current_tier = tier_name
+            tier_name = self.budget.degrade_model(current_tier)
+            self._emit_progress(phase.value, "budget_degrade",
+                                f"⚠️ Budget {budget_status['max_pct']}% → degrade {current_tier}→{tier_name}")
+            self.mem.record_event("budget_degrade", time.time(),
+                                  {"from": str(current_tier), "to": str(tier_name)})
+
         response = agent_llm.complete(context_messages, max_tokens=4096, temperature=0.3)
         messages.append({"role": "assistant", "content": response})
 
@@ -791,7 +795,7 @@ class AcademicLoop:
         if tokens_used > 0:
             self.budget.record(tokens_used, model=tier_name)
 
-        # P2-2: Record cost in CostLedger (agent role)
+        # P2-2: Record cost in CostLedger
         cost_usd = getattr(agent_llm, 'last_cost', 0.0) or 0.0
         input_tokens = getattr(agent_llm, 'last_input_tokens', 0) or 0
         output_tokens = getattr(agent_llm, 'last_output_tokens', 0) or 0
@@ -812,6 +816,15 @@ class AcademicLoop:
 
         # Step 4: Complete
         response_preview = response[:80].replace("\n", " ")
+
+        # P2: HallucinationGuard check
+        hallucination_nudge = self.hallucination_guard.check(response)
+        if hallucination_nudge:
+            messages.append({"role": "system", "content": hallucination_nudge})
+            self._emit_progress(phase.value, "hallucination_nudge",
+                                f"⚠️ Hallucination detected → nudge injected",
+                                pct_base + 50)
+
         self._emit_progress(phase.value, "agent_done",
                             f"✅ {role_cn} 完成\n   {response_preview}",
                             pct_base + 60)
@@ -847,7 +860,14 @@ class AcademicLoop:
         return (
             f"You are the **{role}** in an academic research team.\n"
             f"Current Phase: {phase.value} — {phase_label}\n"
-            f"Project: {self.tracker.state.get('project_title', 'Untitled')}\n\n"
+            f"Project: {self.tracker.state.get('project_title', 'Untitled')}\n"
+            f"Project output path: {self.project_dir}\n"
+            f"  - Paper files → {self.project_dir}/paper/\n"
+            f"  - Figure files → {self.project_dir}/figures/\n"
+            f"  - Data files → {self.project_dir}/data/\n"
+            f"  - Sketches/ideas → {self.project_dir}/idea-stage/\n"
+            f"  - Review logs → {self.project_dir}/review-stage/\n\n"
+            f"When generating files, write them to the appropriate subdirectory above.\n\n"
             f"Conversation history ({len(messages)} messages):\n"
             f"Respond with your contribution to this phase."
         )
@@ -868,9 +888,31 @@ class AcademicLoop:
             f"Max iterations: {MAX_ITERATIONS[phase]}\n"
             f"Project: {self.tracker.state.get('project_title', 'Untitled')}\n"
             f"Project ID: {self.project_id}\n"
+            f"Project output path: {self.project_dir}\n"
         )
 
     def _persist_learnings(self, phase: Phase, session_id: str, messages: list[dict]):
+        # P4: Generate structured summary via Summarizer
+        summary_result = {}
+        try:
+            summary_result = self.summarizer.summarize(messages, phase=phase.value)
+        except Exception as e:
+            print(f"  ⚠️ Summarizer failed: {e}")
+
+        if summary_result:
+            summary_key = f"academic:phase:summary:{self.project_id}:{phase.value}"
+            try:
+                self.r.json().set(summary_key, "$", {
+                    "project_id": self.project_id,
+                    "phase": phase.value,
+                    "phase_label": PHASE_LABELS[phase],
+                    "analysis": summary_result.get("analysis", ""),
+                    "summary": summary_result.get("summary", ""),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                })
+            except Exception as e:
+                print(f"  ⚠️ Failed to store summary: {e}")
+
         content = (
             f"Phase {phase.value} ({PHASE_LABELS[phase]}) completed.\n"
             f"Agents: {', '.join(PHASE_AGENTS[phase])}\n"
@@ -878,6 +920,8 @@ class AcademicLoop:
             f"Gates: {self.tracker.state.get('gate_results', {})}\n"
             f"Messages in session: {len(messages)}\n"
         )
+        if summary_result:
+            content += f"\nSummary: {summary_result.get('summary', '')[:500]}\n"
         self.mem.create_long_term_memory(
             content=content,
             topics=["phase-complete", f"phase-{phase.value}", self.project_id],
@@ -888,8 +932,27 @@ class AcademicLoop:
                 "project_id": self.project_id,
                 "session_id": session_id,
                 "completed_at": datetime.now(timezone.utc).isoformat(),
+                "has_summary": bool(summary_result),
             },
         )
+
+    def _collect_phase_artifacts(self, phase: Phase) -> list[dict]:
+        """Scan project directory for generated files and log them."""
+        artifacts = []
+        for root, _dirs, files in os.walk(self.project_dir):
+            for f in files:
+                rel = os.path.relpath(os.path.join(root, f), self.project_dir)
+                fpath = os.path.join(root, f)
+                size = os.path.getsize(fpath)
+                artifacts.append({"path": rel, "size": size})
+        if artifacts:
+            print(f"  📁 Phase {phase.value} artifacts ({len(artifacts)} files):")
+            for a in artifacts:
+                print(f"     {a['path']} ({a['size']}B)")
+            self._emit_progress(phase.value, "phase_artifacts",
+                                f"📁 Phase {phase.value}: {len(artifacts)} files generated",
+                                int(((phase.value + 1) / 5) * 100))
+        return artifacts
 
     def status(self) -> dict:
         return {
@@ -943,30 +1006,43 @@ class AcademicLoop:
                 return False
         return True
 
-    def _clear_stale_state(self):
-        """Reset PhaseTracker if it shows stale running state (>10min old)."""
+    def _clear_stale_state(self, force: bool = False):
+        """Reset PhaseTracker if it shows stale running state.
+
+        Args:
+            force: If True, always clear regardless of age (used on daemon boot).
+        """
         try:
             state = self.tracker.state
             if state.get("status") == "running":
                 started = state.get("phase_started_at")
-                if started:
+                age = 0
+                stale = force
+                if started and not force:
                     import datetime as _dt
                     try:
                         started_dt = _dt.datetime.fromisoformat(started)
                         age = (_dt.datetime.now(_dt.timezone.utc) - started_dt).total_seconds()
+                        if age > 120:
+                            stale = True
                     except Exception:
-                        age = 0
-                    if age > 600:
-                        self.tracker._set("$.status", "idle")
-                        self.tracker._set("$.completed_phases", [])
-                        print(f"[AcademicLoop:daemon] Cleared stale pipeline state ({int(age)}s old)")
+                        stale = True
+                elif not started:
+                    stale = True
+                if stale:
+                    self.tracker._set("$.status", "idle")
+                    self.tracker._set("$.completed_phases", [])
+                    self.tracker._set("$.current_phase", 0)
+                    self.tracker._set("$.phase_iterations", 0)
+                    print(f"[AcademicLoop:daemon] Cleared stale pipeline state"
+                          f" (age={int(age)}s, force={force})")
         except Exception:
             pass
 
     def start_daemon(self, inbox_channel: str = "academic:inbox",
                      outbox_channel: str = "academic:outbox"):
         """Run in daemon mode, listening for incoming messages via Redis pub/sub."""
-        self._clear_stale_state()
+        self._clear_stale_state(force=True)
         self._running = True
         pubsub = self.r.pubsub()
         pubsub.subscribe(inbox_channel)
@@ -1036,55 +1112,6 @@ class AcademicLoop:
 
         _t.Thread(target=_run_pipeline, daemon=True).start()
 
-    def _assess_clarity(self, text: str) -> dict:
-        """Assess research task clarity using reviewer LLM.
-        
-        Returns:
-            dict with 'clear' (bool) and 'questions' (list of clarification questions)
-        """
-        try:
-            prompt = """你是一个学术研究任务评估器。评估用户的研究指令是否足够清晰具体，可以启动完整研究管线。
-
-判断标准：
-- 清晰：有明确的研究主题、具体的问题或假设、清晰的研究范围
-- 不清晰：过于宽泛、模糊的目标、缺少具体信息
-
-如果不清晰，生成1-3个澄清问题，每个问题提供2-4个选项供用户选择。
-
-返回JSON格式：
-{
-  "clear": true/false,
-  "questions": [
-    {
-      "id": "q1",
-      "question": "问题文本",
-      "options": ["选项1", "选项2", "选项3"]
-    }
-  ]
-}
-
-用户指令：
-"""
-            response = self.llm.reviewer.complete([
-                {"role": "system", "content": "学术研究任务清晰度评估器。只返回JSON，不要其他内容。"},
-                {"role": "user", "content": prompt + text}
-            ], max_tokens=500, temperature=0.3)
-            
-            # Parse JSON from response
-            import re
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                result = json.loads(json_match.group())
-                return {
-                    "clear": result.get("clear", True),
-                    "questions": result.get("questions", [])
-                }
-            return {"clear": True, "questions": []}
-        except Exception as e:
-            # If assessment fails, assume task is clear to avoid blocking
-            print(f"[Clarity] Assessment error: {e}, assuming clear")
-            return {"clear": True, "questions": []}
-
     def process_incoming(self, data: dict) -> Optional[dict]:
         """Process an incoming message with command routing.
 
@@ -1104,21 +1131,6 @@ class AcademicLoop:
         # status_query from bridge /status command
         if msg_type == "status_query":
             return {"type": "status_response", "chat_id": chat_id, "data": self.status()}
-
-        # P1-2: Handle interview answers — append clarification context and start pipeline
-        if msg_type == "interview_answer":
-            original_text = data.get("original_text", "")
-            answers = data.get("answers", {})
-            # Build enriched task text with clarification answers
-            enriched = original_text
-            if answers:
-                answer_parts = []
-                for qid, ans in answers.items():
-                    answer_parts.append(f"[{qid}]: {ans}")
-                enriched = f"{original_text}\n\n用户补充说明:\n" + "\n".join(answer_parts)
-            self._run_pipeline_thread(enriched, chat_id)
-            return {"type": "pipeline_ack", "chat_id": chat_id,
-                    "text": "🚀 已收到补充信息，管线启动中..."}
 
         if msg_type != "user_message" or not text:
             return None
@@ -1170,19 +1182,6 @@ class AcademicLoop:
                     f"完成后可发新消息启动新管线"
                 ),
             }
-
-        # P1-2: Assess task clarity before starting pipeline
-        # Short commands (< 10 chars) or commands starting with / skip clarity check
-        if len(text) > 10 and not text.startswith("/"):
-            clarity = self._assess_clarity(text)
-            if not clarity.get("clear", True) and clarity.get("questions"):
-                return {
-                    "type": "interview",
-                    "chat_id": chat_id,
-                    "questions": clarity["questions"],
-                    "original_text": text,
-                    "text": "📋 需要补充一些信息来启动研究管线",
-                }
 
         # Start pipeline
         self._run_pipeline_thread(text, chat_id)

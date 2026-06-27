@@ -128,6 +128,7 @@ class TeamLauncher:
         loop = AcademicLoop(
             redis_url=self.redis_url,
             project_title=self.project_title,
+            output_dir=os.getcwd(),
             daemon_mode=True,
         )
         self.services["loop"] = loop
