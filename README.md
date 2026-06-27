@@ -205,6 +205,18 @@ PolyAgent-Research/
 
 ---
 
+---
+
+## 📚 References / 参考项目
+
+| Project / 项目 | GitHub | Description / 说明 |
+|-----------|--------|-------------|
+| **Kocoro** | [github.com/Kocoro-lab/Kocoro](https://github.com/Kocoro-lab/Kocoro) | Agent engine & daemon that inspired the Phase 0–5 orchestration pattern / 启发了 Phase 0–5 编排模式的智能体引擎 |
+| **Shannon** | [github.com/Kocoro-lab/Shannon](https://github.com/Kocoro-lab/Shannon) | Multi-agent framework powering the three-model architecture and AGENT_TIER routing / 支撑三模型架构和 AGENT_TIER 路由的多智能体框架 |
+| **Scientific Agent Skills** | [github.com/K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) | 147 open-source scientific skills referenced for academic research workflows / 147 个开源科研技能，为学术研究工作流提供参考 |
+
+---
+
 ## 📄 License / 许可
 
 MIT
