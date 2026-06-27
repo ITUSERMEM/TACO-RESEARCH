@@ -11,8 +11,8 @@ import time
 from typing import Optional
 
 import redis as redis_module
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
 # ── Config ──────────────────────────────────────────────────
 _TOKEN_FILE = os.path.join(os.path.dirname(__file__), "bot_token.txt")
@@ -43,6 +43,10 @@ def _get_redis() -> "redis_module.Redis":
     return _redis_client
 
 LOOP_ENABLED = True  # AcademicLoop daemon auto-executes pipeline on user_message
+
+# P1-2: Interview state — tracks pending clarification sessions per chat_id
+# Format: {chat_id: {"original_text": str, "questions": list, "answers": dict, "current_q": int}}
+_pending_interviews: dict[int, dict] = {}
 
 def academic_loop_available() -> bool:
     if not LOOP_ENABLED:
@@ -315,6 +319,19 @@ async def _handle_via_academic_loop(
                 if msg_type == "pipeline_ack":
                     await status_msg.edit_text(data.get("text", "🚀 管线运行中..."))
                     continue  # keep listening for progress + result
+                if msg_type == "interview":
+                    # P1-2: Clarity interview — render questions with inline keyboard
+                    await status_msg.edit_text(data.get("text", "📋 需要补充信息"))
+                    interview_state = {
+                        "original_text": data.get("original_text", ""),
+                        "questions": data.get("questions", []),
+                        "answers": {},
+                        "current_q": 0,
+                    }
+                    _pending_interviews[chat_id] = interview_state
+                    await _render_interview_question(update, chat_id, interview_state)
+                    pubsub.unsubscribe()
+                    return  # Exit — will resume via callback query handler
                 if msg_type == "pipeline_result":
                     response = data
                     break
@@ -345,6 +362,194 @@ async def _handle_via_academic_loop(
             await status_msg.edit_text(f"❌ 学术团队错误: {e}")
         except Exception:
             pass
+
+
+async def _render_interview_question(
+    update: Update, chat_id: int, state: dict,
+):
+    """Render the current interview question with InlineKeyboard options."""
+    questions = state.get("questions", [])
+    current_q = state.get("current_q", 0)
+
+    if current_q >= len(questions):
+        # All questions answered — submit to AcademicLoop
+        await _submit_interview_answers(update, chat_id, state)
+        return
+
+    q = questions[current_q]
+    q_text = q.get("question", f"问题 {current_q + 1}")
+    q_id = q.get("id", f"q{current_q + 1}")
+    options = q.get("options", [])
+
+    # Build inline keyboard: each option as a button
+    keyboard = []
+    for i, opt in enumerate(options):
+        callback_data = f"interview:{chat_id}:{q_id}:{i}"
+        # Telegram callback_data max 64 bytes — truncate if needed
+        if len(callback_data) > 64:
+            callback_data = f"interview:{chat_id}:{q_id}:{i}"[:64]
+        keyboard.append([InlineKeyboardButton(opt[:40], callback_data=callback_data)])
+    # Add a "skip" button
+    keyboard.append([InlineKeyboardButton("⏭ 跳过此问题", callback_data=f"interview:{chat_id}:{q_id}:skip")])
+
+    progress_text = f"📋 问题 {current_q + 1}/{len(questions)}"
+    # Support both message context and callback_query context
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if msg:
+        await msg.reply_text(
+            f"{progress_text}\n\n{q_text}",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+
+
+async def _submit_interview_answers(
+    update: Update, chat_id: int, state: dict,
+):
+    """Submit all collected interview answers back to AcademicLoop."""
+    r = _get_redis()
+    answer_msg = {
+        "type": "interview_answer",
+        "chat_id": str(chat_id),
+        "original_text": state.get("original_text", ""),
+        "answers": state.get("answers", {}),
+        "timestamp": time.time(),
+    }
+    r.publish(REDIS_INBOX, json.dumps(answer_msg))
+
+    answered = len(state.get("answers", {}))
+    total = len(state.get("questions", []))
+    # Support both message context and callback_query context
+    msg = update.message or (update.callback_query.message if update.callback_query else None)
+    if msg:
+        await msg.reply_text(
+            f"✅ 已收集 {answered}/{total} 个回答，正在启动研究管线..."
+        )
+    # Clean up interview state
+    _pending_interviews.pop(chat_id, None)
+
+    # Re-enter the academic loop listener for pipeline progress
+    await _handle_via_academic_loop_listen(update, chat_id)
+
+
+async def _handle_via_academic_loop_listen(
+    update: Update, chat_id: int,
+):
+    """Re-listen on outbox for pipeline progress after interview submission."""
+    status_msg = await update.message.reply_text("🚀 学术团队管线启动中...")
+    try:
+        r = _get_redis()
+        pubsub = r.pubsub()
+        pubsub.subscribe(REDIS_OUTBOX, "academic:progress")
+
+        response = None
+        deadline = time.time() + 300.0
+        while time.time() < deadline:
+            msg = pubsub.get_message(timeout=0.5)
+            if not msg or msg["type"] != "message":
+                continue
+            try:
+                data = json.loads(msg["data"])
+            except json.JSONDecodeError:
+                continue
+
+            channel = msg.get("channel", b"").decode() if isinstance(msg.get("channel"), bytes) else msg.get("channel", "")
+
+            if "progress" in str(channel):
+                if str(data.get("chat_id")) != str(chat_id):
+                    continue
+                detail = data.get("detail", "")
+                pct = data.get("progress_pct", 0)
+                status = data.get("status", "")
+                phase_label = data.get("phase_label", "")
+
+                STATUS_KEYS = {"pipeline_start", "pipeline_error", "phase_start",
+                               "phase_complete", "gate_pass", "gate_revise", "gate_fail"}
+                if status in STATUS_KEYS:
+                    icons = {"phase_start": "📋", "phase_complete": "✅",
+                             "gate_pass": "✅", "gate_revise": "⚠️", "gate_fail": "❌",
+                             "pipeline_start": "🚀", "pipeline_error": "❌"}
+                    icon = icons.get(status, "🔄")
+                    text = f"{icon} {detail}\n─── {pct}% ─── Phase {data.get('phase','?')} {phase_label}"
+                    try:
+                        await status_msg.edit_text(text)
+                    except Exception:
+                        pass
+                continue
+
+            if "outbox" in str(channel):
+                if str(data.get("chat_id")) != str(chat_id):
+                    continue
+                msg_type = data.get("type", "")
+                if msg_type == "pipeline_ack":
+                    await status_msg.edit_text(data.get("text", "🚀 管线运行中..."))
+                    continue
+                if msg_type == "pipeline_result":
+                    response = data
+                    break
+
+        pubsub.unsubscribe()
+
+        if not response:
+            await status_msg.edit_text("✅ 学术团队管线已完成")
+            return
+
+        text = response.get("text") or json.dumps(response.get("data", {}), indent=2, ensure_ascii=False)
+        if len(text) > MAX_RESPONSE_LEN:
+            await status_msg.edit_text(text[:MAX_RESPONSE_LEN] + "\n\n...(内容已截断)")
+        else:
+            await status_msg.edit_text(text)
+
+    except Exception as e:
+        logger.exception("AcademicLoop listen error")
+        try:
+            await status_msg.edit_text(f"❌ 学术团队错误: {e}")
+        except Exception:
+            pass
+
+
+async def handle_interview_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle interview question answer callbacks."""
+    query = update.callback_query
+    await query.answer()
+
+    parts = query.data.split(":")
+    if len(parts) < 4:
+        await query.edit_message_text("❌ 无效的回复")
+        return
+
+    _, chat_id_str, q_id, answer_idx = parts[0], parts[1], parts[2], parts[3]
+    chat_id = int(chat_id_str)
+
+    state = _pending_interviews.get(chat_id)
+    if not state:
+        await query.edit_message_text("⏰ 澄清问题已过期，请重新发送研究指令")
+        return
+
+    questions = state.get("questions", [])
+    current_q = state.get("current_q", 0)
+
+    if current_q < len(questions):
+        q = questions[current_q]
+        options = q.get("options", [])
+
+        if answer_idx == "skip":
+            state["answers"][q_id] = "(跳过)"
+        else:
+            try:
+                idx = int(answer_idx)
+                state["answers"][q_id] = options[idx] if idx < len(options) else answer_idx
+            except (ValueError, IndexError):
+                state["answers"][q_id] = answer_idx
+
+        # Show which option was selected
+        selected = state["answers"][q_id]
+        await query.edit_message_text(
+            f"~~{q.get('question', '')}~~\n✅ 已选择: {selected}"
+        )
+
+        # Advance to next question
+        state["current_q"] = current_q + 1
+        await _render_interview_question(update, chat_id, state)
 
 
 async def _handle_via_tmux(
@@ -458,6 +663,7 @@ def main():
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("respawn", cmd_respawn))
+    app.add_handler(CallbackQueryHandler(handle_interview_callback, pattern=r"^interview:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Bridge started (polling mode, proxy=%s)", bool(proxy_url))

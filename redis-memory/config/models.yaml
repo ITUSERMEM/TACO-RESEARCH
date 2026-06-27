@@ -70,3 +70,23 @@ routing:
   deep_audit: large
   proof_check: large
   citation_verify: large
+
+# Fusion panel pricing (P3-a)
+# When a fusion gate (G2, G5, G7) runs multi-model voting,
+# the total cost is the sum of all panel member costs.
+fusion:
+  enabled: true
+  # Panel: each fusion gate calls reviewer + pro independently
+  panel:
+    - tier: small    # reviewer (glm-5.2)
+      role: panel_member
+    - tier: large    # pro (deepseek-v4-pro)
+      role: panel_member
+  # Synthesized cost per fusion evaluation = sum of panel costs
+  # small: $0.001/$0.002 per 1K  +  large: $0.005/$0.010 per 1K
+  # = $0.006 input / $0.012 output per fusion gate call
+  synthesized_cost:
+    input_per_1k: 0.006
+    output_per_1k: 0.012
+  # Budget guard: max fusion calls per pipeline before warning
+  max_fusion_calls: 50

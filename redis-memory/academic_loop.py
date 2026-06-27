@@ -30,6 +30,10 @@ from loop_detector import PhaseLoopDetector, LoopAction
 from skill_executor import SkillExecutor
 from audit_logger import AuditLogger
 from skill_contract import SkillContract
+from token_budget import TokenBudget
+from complexity_router import ComplexityRouter
+from cost_ledger import CostLedger
+from model_registry import ModelRegistry
 
 ROLE_CN = {
     "research-director": "研究项目总监", "academic-editor": "学术编辑",
@@ -441,6 +445,19 @@ class AcademicLoop:
         self._chat_id = ""
         self._outbox_channel = "academic:outbox"
 
+        # P0-1: TokenBudget for pipeline-level token enforcement
+        self.budget = TokenBudget(
+            redis_url=redis_url,
+            session_id=self.project_id,
+            task_id=self.project_id,
+        )
+        # P0-2: CostLedger for append-only cost tracking with snapshotMax
+        self.cost_ledger = CostLedger(self.r)
+        # P1-3: ComplexityRouter for dynamic task routing
+        self.router = ComplexityRouter()
+        # P3-a: ModelRegistry for fusion pricing
+        self.model_registry = ModelRegistry()
+
         if project_title:
             self.tracker._set("$.project_title", project_title)
 
@@ -457,6 +474,25 @@ class AcademicLoop:
         print(f"[AcademicLoop] Starting project {self.project_id}")
         print(f"[AcademicLoop] Pipeline: {PHASE_LABELS[start_phase]} → {PHASE_LABELS[end_phase]}")
         print()
+
+        # P1-3: Complexity-based routing — adjust iterations for simple tasks
+        task_text = self.tracker.state.get("project_title", "") or ""
+        routing = self.router.route(task_text) if task_text else {"strategy": "research", "complexity": 0.5}
+        self._routing_info = routing
+        complexity = routing.get("complexity", 0.5)
+        strategy = routing.get("strategy", "research")
+        print(f"[AcademicLoop] Complexity: {complexity:.2f} → strategy: {strategy}")
+
+        # Dynamic iteration adjustment based on complexity
+        adjusted_iters = dict(MAX_ITERATIONS)
+        if strategy == "simple":
+            for phase_key in adjusted_iters:
+                adjusted_iters[phase_key] = max(1, adjusted_iters[phase_key] // 2)
+            print(f"[AcademicLoop] Simple task: iterations halved")
+        elif strategy == "react":
+            for phase_key in adjusted_iters:
+                adjusted_iters[phase_key] = max(1, int(adjusted_iters[phase_key] * 0.75))
+        self._adjusted_iters = adjusted_iters
 
         for phase in Phase:
             if phase.value < start_phase.value:
@@ -491,7 +527,7 @@ class AcademicLoop:
         watchdog = Watchdog(WatchdogConfig.for_phase(phase))
         session_id = f"phase{phase.value}-{self.project_id}"
 
-        max_iters = MAX_ITERATIONS[phase]
+        max_iters = self._adjusted_iters.get(phase, MAX_ITERATIONS[phase])
         agents = PHASE_AGENTS[phase]
         print(f"  Agents: {', '.join(agents)}")
         print(f"  Max iterations: {max_iters}")
@@ -611,6 +647,28 @@ class AcademicLoop:
             "issues": result.get("issues", []),
             "recommendations": result.get("recommendations", []),
         }
+
+        # P2-2: Record gate evaluation cost as sub-agent in CostLedger
+        # Fusion gates (G2, G5, G7) cost 2x LLM calls; estimate ~400 tokens input per call
+        is_fusion = gate_id in getattr(self.gate_judge, 'FUSION_GATES', set())
+        estimated_input = 800 if is_fusion else 400
+        estimated_output = 400 if is_fusion else 200
+        fusion_cost = self.model_registry.get_fusion_cost(estimated_input, estimated_output) if is_fusion else 0.0
+        gate_tier = GateJudge.GATE_TIER.get(gate_id, "reviewer")
+        self.cost_ledger.record_run(
+            project_id=self.project_id,
+            session_id=session_id,
+            model=gate_tier,
+            role="subagent",
+            delta={
+                "cost_usd": fusion_cost,
+                "input_tokens": estimated_input,
+                "output_tokens": estimated_output,
+                "cached_tokens": 0,
+                "total_tokens": estimated_input + estimated_output,
+            },
+        )
+
         return verdict, details
 
     @staticmethod
@@ -694,6 +752,24 @@ class AcademicLoop:
                             f"🧠 {role_cn} → 正在整合结果生成回答...",
                             pct_base + 40)
 
+        tier_name = AGENT_TIER.get(chosen_skill or "", "executor")
+
+        # P0-1: TokenBudget check before LLM call
+        budget_status = self.budget.check()
+        if budget_status["action"] == "stop":
+            messages.append({"role": "system", "content": "[Budget exceeded: stopping phase]"})
+            self._emit_progress(phase.value, "budget_stop",
+                                f"🛑 Token budget exceeded — stopping", pct_base + 40)
+            print(f"  [{iteration}] 🛑 Budget exceeded — stopping iteration")
+            return
+        elif budget_status["action"] == "degrade":
+            tier_name = self.budget.degrade_model(tier_name)
+            self._emit_progress(phase.value, "budget_degrade",
+                                f"⚠️ Budget tight — degraded to {tier_name}", pct_base + 40)
+            print(f"  [{iteration}] ⚠️ Budget degrade → {tier_name}")
+        elif budget_status["action"] == "warn":
+            print(f"  [{iteration}] ⚠️ Budget warning ({budget_status['max_pct']:.0f}%)")
+
         context_messages = [{"role": "system", "content": self._build_agent_prompt(role, phase, messages)}]
         if skill_output and len(skill_output) > 20:
             context_messages.append({
@@ -702,7 +778,6 @@ class AcademicLoop:
             })
         context_messages += messages[-3:]
 
-        tier_name = AGENT_TIER.get(chosen_skill or "", "executor")
         agent_llm = {
             "executor": self.llm.executor,
             "reviewer": self.llm.reviewer,
@@ -710,6 +785,30 @@ class AcademicLoop:
         }[tier_name]
         response = agent_llm.complete(context_messages, max_tokens=4096, temperature=0.3)
         messages.append({"role": "assistant", "content": response})
+
+        # P0-1: Record token usage in TokenBudget
+        tokens_used = getattr(agent_llm, 'last_total_tokens', 0) or 0
+        if tokens_used > 0:
+            self.budget.record(tokens_used, model=tier_name)
+
+        # P2-2: Record cost in CostLedger (agent role)
+        cost_usd = getattr(agent_llm, 'last_cost', 0.0) or 0.0
+        input_tokens = getattr(agent_llm, 'last_input_tokens', 0) or 0
+        output_tokens = getattr(agent_llm, 'last_output_tokens', 0) or 0
+        if cost_usd > 0 or tokens_used > 0:
+            self.cost_ledger.record_run(
+                project_id=self.project_id,
+                session_id=session_id,
+                model=tier_name,
+                role="agent",
+                delta={
+                    "cost_usd": cost_usd,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "cached_tokens": 0,
+                    "total_tokens": tokens_used,
+                },
+            )
 
         # Step 4: Complete
         response_preview = response[:80].replace("\n", " ")
@@ -937,6 +1036,55 @@ class AcademicLoop:
 
         _t.Thread(target=_run_pipeline, daemon=True).start()
 
+    def _assess_clarity(self, text: str) -> dict:
+        """Assess research task clarity using reviewer LLM.
+        
+        Returns:
+            dict with 'clear' (bool) and 'questions' (list of clarification questions)
+        """
+        try:
+            prompt = """你是一个学术研究任务评估器。评估用户的研究指令是否足够清晰具体，可以启动完整研究管线。
+
+判断标准：
+- 清晰：有明确的研究主题、具体的问题或假设、清晰的研究范围
+- 不清晰：过于宽泛、模糊的目标、缺少具体信息
+
+如果不清晰，生成1-3个澄清问题，每个问题提供2-4个选项供用户选择。
+
+返回JSON格式：
+{
+  "clear": true/false,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "问题文本",
+      "options": ["选项1", "选项2", "选项3"]
+    }
+  ]
+}
+
+用户指令：
+"""
+            response = self.llm.reviewer.complete([
+                {"role": "system", "content": "学术研究任务清晰度评估器。只返回JSON，不要其他内容。"},
+                {"role": "user", "content": prompt + text}
+            ], max_tokens=500, temperature=0.3)
+            
+            # Parse JSON from response
+            import re
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                result = json.loads(json_match.group())
+                return {
+                    "clear": result.get("clear", True),
+                    "questions": result.get("questions", [])
+                }
+            return {"clear": True, "questions": []}
+        except Exception as e:
+            # If assessment fails, assume task is clear to avoid blocking
+            print(f"[Clarity] Assessment error: {e}, assuming clear")
+            return {"clear": True, "questions": []}
+
     def process_incoming(self, data: dict) -> Optional[dict]:
         """Process an incoming message with command routing.
 
@@ -956,6 +1104,21 @@ class AcademicLoop:
         # status_query from bridge /status command
         if msg_type == "status_query":
             return {"type": "status_response", "chat_id": chat_id, "data": self.status()}
+
+        # P1-2: Handle interview answers — append clarification context and start pipeline
+        if msg_type == "interview_answer":
+            original_text = data.get("original_text", "")
+            answers = data.get("answers", {})
+            # Build enriched task text with clarification answers
+            enriched = original_text
+            if answers:
+                answer_parts = []
+                for qid, ans in answers.items():
+                    answer_parts.append(f"[{qid}]: {ans}")
+                enriched = f"{original_text}\n\n用户补充说明:\n" + "\n".join(answer_parts)
+            self._run_pipeline_thread(enriched, chat_id)
+            return {"type": "pipeline_ack", "chat_id": chat_id,
+                    "text": "🚀 已收到补充信息，管线启动中..."}
 
         if msg_type != "user_message" or not text:
             return None
@@ -1007,6 +1170,19 @@ class AcademicLoop:
                     f"完成后可发新消息启动新管线"
                 ),
             }
+
+        # P1-2: Assess task clarity before starting pipeline
+        # Short commands (< 10 chars) or commands starting with / skip clarity check
+        if len(text) > 10 and not text.startswith("/"):
+            clarity = self._assess_clarity(text)
+            if not clarity.get("clear", True) and clarity.get("questions"):
+                return {
+                    "type": "interview",
+                    "chat_id": chat_id,
+                    "questions": clarity["questions"],
+                    "original_text": text,
+                    "text": "📋 需要补充一些信息来启动研究管线",
+                }
 
         # Start pipeline
         self._run_pipeline_thread(text, chat_id)

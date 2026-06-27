@@ -111,18 +111,30 @@ class GateJudge:
     Uses dual-model architecture:
     - reviewer (glm-5.2) for G1, G3, G4, G6 — standard review
     - pro (deepseek-v4-pro) for G2, G5, G7 — deep audit
+
+    Fusion voting (P1-1): G2, G5, G7 use multi-model panel voting
+    where both reviewer and pro independently evaluate, then aggregate:
+    any fail → fail; all pass → pass; otherwise revise.
     """
 
     GATE_TIER = {1: "reviewer", 2: "pro", 3: "reviewer",
                   4: "reviewer", 5: "pro", 6: "reviewer", 7: "pro"}
 
+    # Gates that require multi-model panel voting for higher reliability
+    FUSION_GATES = {2, 5, 7}
+
     def __init__(self, reviewer_llm: Optional[LLMClient] = None,
-                 pro_llm: Optional[LLMClient] = None):
+                 pro_llm: Optional[LLMClient] = None,
+                 fusion_enabled: bool = True):
         self.reviewer = reviewer_llm or LLMClient(model="glm-5.2")
         self.pro = pro_llm or LLMClient(base_url="https://api.deepseek.com/v1", api_key="", model="deepseek-v4-pro")
+        self.fusion_enabled = fusion_enabled
 
     def evaluate(self, gate_id: int, transcript: str) -> dict:
-        """Evaluate a review gate. Routes to reviewer or pro model by gate tier."""
+        """Evaluate a review gate. Auto-routes to fusion for fusion gates."""
+        if self.fusion_enabled and gate_id in self.FUSION_GATES:
+            return self.evaluate_fusion(gate_id, transcript)
+
         prompt = GATE_JUDGE_PROMPTS.get(gate_id)
         if not prompt:
             return {"verdict": "pass", "issues": [], "recommendations": []}
@@ -137,6 +149,58 @@ class GateJudge:
         result = self._parse_response(response)
         self._validate_result(result)
         return result
+
+    def evaluate_fusion(self, gate_id: int, transcript: str) -> dict:
+        """Panel voting: reviewer + pro independently evaluate, then aggregate.
+
+        Voting logic:
+        - Any panel member says fail → final verdict is fail
+        - All panel members say pass → final verdict is pass
+        - Mixed pass/revise → final verdict is revise
+
+        Returns dict with verdict, panel (list of individual results), and merged issues.
+        """
+        prompt = GATE_JUDGE_PROMPTS.get(gate_id)
+        if not prompt:
+            return {"verdict": "pass", "issues": [], "recommendations": [], "panel": []}
+
+        capped = transcript[:30000]
+        panel_results = []
+
+        for llm in [self.reviewer, self.pro]:
+            response = llm.complete([
+                {"role": "system", "content": (
+                    f"Reviewer for Gate {gate_id} (fusion panel). "
+                    f"Return ONLY valid JSON (verdict, issues, recommendations). Max 200 tokens."
+                )},
+                {"role": "user", "content": (prompt + capped)[:40000]},
+            ], max_tokens=200, temperature=0.1)
+            result = self._parse_response(response)
+            self._validate_result(result)
+            panel_results.append(result)
+
+        # Aggregate panel verdicts
+        verdicts = [r["verdict"] for r in panel_results]
+        if "fail" in verdicts:
+            final = "fail"
+        elif all(v == "pass" for v in verdicts):
+            final = "pass"
+        else:
+            final = "revise"
+
+        # Merge issues and recommendations from all panel members
+        all_issues = []
+        all_recs = []
+        for r in panel_results:
+            all_issues.extend(r.get("issues", []))
+            all_recs.extend(r.get("recommendations", []))
+
+        return {
+            "verdict": final,
+            "panel": panel_results,
+            "issues": all_issues,
+            "recommendations": all_recs,
+        }
 
     def _model_for_gate(self, gate_id: int) -> LLMClient:
         tier = self.GATE_TIER.get(gate_id, "reviewer")

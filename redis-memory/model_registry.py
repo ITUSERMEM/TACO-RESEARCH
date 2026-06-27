@@ -79,3 +79,37 @@ class ModelRegistry:
 
     def get_config(self) -> dict:
         return dict(self._data)
+
+    def get_fusion_config(self) -> dict:
+        """Get fusion panel pricing configuration (P3-a).
+
+        Returns:
+            dict with keys: enabled, panel (list of tier configs),
+            synthesized_cost (input_per_1k, output_per_1k), max_fusion_calls.
+            Returns default config if fusion section not present.
+        """
+        fusion = self._data.get("fusion", {})
+        if not fusion:
+            return {
+                "enabled": False,
+                "panel": [],
+                "synthesized_cost": {"input_per_1k": 0.0, "output_per_1k": 0.0},
+                "max_fusion_calls": 0,
+            }
+        return {
+            "enabled": fusion.get("enabled", False),
+            "panel": fusion.get("panel", []),
+            "synthesized_cost": fusion.get("synthesized_cost", {"input_per_1k": 0.0, "output_per_1k": 0.0}),
+            "max_fusion_calls": fusion.get("max_fusion_calls", 50),
+        }
+
+    def get_fusion_cost(self, input_tokens: int = 0, output_tokens: int = 0) -> float:
+        """Calculate cost for a single fusion gate evaluation.
+
+        Uses the synthesized_cost from models.yaml fusion section.
+        """
+        cfg = self.get_fusion_config()
+        cost = cfg.get("synthesized_cost", {})
+        input_cost = (input_tokens / 1000.0) * cost.get("input_per_1k", 0.0)
+        output_cost = (output_tokens / 1000.0) * cost.get("output_per_1k", 0.0)
+        return round(input_cost + output_cost, 8)
