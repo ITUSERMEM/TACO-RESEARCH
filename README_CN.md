@@ -1,4 +1,4 @@
-# 我不想科研
+# 科研牛马Agent
 
 <p align="center">
   <a href="README.md">🇬🇧 English</a>
