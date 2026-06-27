@@ -33,6 +33,19 @@ class PhaseRing(Static):
 
     def set_from_state(self, state: dict):
         status = state.get("status", "idle")
+
+        if status == "running":
+            started = state.get("phase_started_at")
+            if started:
+                try:
+                    import datetime as _dt
+                    started_dt = _dt.datetime.fromisoformat(started)
+                    age = (_dt.datetime.now(_dt.timezone.utc) - started_dt).total_seconds()
+                    if age > 120:
+                        status = "idle"
+                except Exception:
+                    pass
+
         if status != "running":
             self._phases = {i: "pending" for i in range(6)}
             self._current = -1
