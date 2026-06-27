@@ -1,4 +1,4 @@
-# PolyAgent-Research
+# 我不想科研
 
 <p align="center">
   <a href="README_CN.md">🇨🇳 中文版</a>
@@ -100,7 +100,6 @@ curl http://127.0.0.1:9333/health
 ## 📁 Structure
 
 ```
-PolyAgent-Research/
 ├── redis-memory/       # Core: pipeline, agents, gates, contracts, tests
 ├── telegram_bridge/    # Telegram bot
 ├── systemd/            # Production services
