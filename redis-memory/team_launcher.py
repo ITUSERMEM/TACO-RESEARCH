@@ -228,6 +228,8 @@ def main():
     parser.add_argument("--status", action="store_true", help="Show status")
     parser.add_argument("--stop", action="store_true", help="Stop services")
     parser.add_argument("--project", default="academic-project", help="Project title")
+    parser.add_argument("--output-dir", "-C", default=".",
+                        help="Output directory for projects/ figures/ etc. Default: current dir")
     args = parser.parse_args()
 
     pid = TeamLauncher.read_pid()
@@ -247,6 +249,11 @@ def main():
         else:
             print("[TeamLauncher] Not running")
         return
+
+    output_dir = os.path.abspath(args.output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    os.chdir(output_dir)
+    print(f"[TeamLauncher] Output directory: {output_dir}")
 
     launcher = TeamLauncher(project_title=args.project)
 
