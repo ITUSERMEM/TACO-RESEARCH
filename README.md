@@ -206,27 +206,6 @@ PolyAgent-Research/
 
 ---
 
-## 📊 Test Coverage
-
-| Module | Tests |
-|--------|-------|
-| Pipeline orchestration | 38 |
-| Loop detection | 22 |
-| SkillContract | 38 |
-| Session & scheduling | 30 |
-| Permissions & hallucination | 27 |
-| Summary & persistence | 25 |
-| Tool budget & heartbeat | 20 |
-| Fault / Adversarial | 12 |
-| Cost ledger & TokenBudget | 14 |
-| Agent roster & fusion | 15 |
-| Complexity router & loop init | 14 |
-| Interview clarity | 10 |
-| LLM integration (slow) | 11 |
-| **Total** | **269** |
-
----
-
 ## 📚 References
 
 | Project | GitHub | Description |

@@ -205,27 +205,6 @@ PolyAgent-Research/
 
 ---
 
-## 📊 测试覆盖
-
-| 模块 | 测试数 |
-|------|-------|
-| 管线编排 | 38 |
-| 循环检测 | 22 |
-| SkillContract | 38 |
-| 会话与调度 | 30 |
-| 权限与幻觉 | 27 |
-| 摘要与持久化 | 25 |
-| 工具预算与心跳 | 20 |
-| 故障与对抗测试 | 12 |
-| CostLedger & TokenBudget | 14 |
-| Agent Roster & Fusion | 15 |
-| ComplexityRouter & Loop Init | 14 |
-| Interview 澄清 | 10 |
-| LLM 集成（慢） | 11 |
-| **合计** | **269** |
-
----
-
 ## 📚 参考项目
 
 | 项目 | GitHub | 说明 |
