@@ -79,6 +79,14 @@ ChatPanel > Static {
     padding: 1 1 0 1;
 }
 
+#input-textarea:focus {
+    border: none;
+}
+
+TextArea:focus {
+    border: none;
+}
+
 #input-hint {
     height: 1;
     background: transparent;
