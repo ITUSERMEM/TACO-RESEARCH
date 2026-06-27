@@ -76,6 +76,13 @@ class OpenCodeBackend(Backend):
             if mapped:
                 yield mapped
 
+    def _map_event(self, event_type: str, props: dict) -> Optional[dict]:
+        """Map opencode SSE events to Backend generic format."""
+        source = {
+            "_source": "opencode",
+            "_session_id": self._session["id"] if self._session else "",
+        }
+
         # -- Message events --
         if event_type == "message.updated":
             info = props.get("info", {})
