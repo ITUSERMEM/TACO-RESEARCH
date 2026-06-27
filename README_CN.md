@@ -1,4 +1,6 @@
-# 科研牛马Agent
+# TACO-RESEARCH
+
+> **T**eam **A**gent for **C**ode & **O**utput **R**esearch
 
 <p align="center">
   <a href="README.md">🇬🇧 English</a>
